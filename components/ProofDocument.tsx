@@ -1,9 +1,10 @@
+import { ThemedText } from '@/components/ThemedComponents';
+import { useTranslation } from '@/hooks/useTranslation';
+import { useTheme } from '@/theme';
+import { formatDate } from '@/utils/date';
+import { FontAwesome } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { ThemedCard, ThemedText, ThemedView } from '@/components/ThemedComponents';
-import { useTheme } from '@/theme';
-import { useTranslation } from '@/hooks/useTranslation';
-import { FontAwesome } from '@expo/vector-icons';
 
 interface ProofDocumentProps {
   type: 'pregnancy' | 'birth';
@@ -42,203 +43,232 @@ export function ProofDocument({
 
   const isPregnancy = type === 'pregnancy';
 
+  // Fonction helper pour formater les dates de manière sécurisée
+  const formatDateSafe = (dateString?: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // Si la date est invalide, essayer avec formatDate de date-fns
+        const formatted = formatDate(dateString);
+        return formatted || dateString; // Retourner la chaîne originale si le formatage échoue
+      }
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateString; // Retourner la chaîne originale en cas d'erreur
+    }
+  };
+
   return (
     <ScrollView 
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={true}
     >
-      <ThemedCard style={styles.document}>
+      <View style={[styles.document, { backgroundColor: '#ffffff' }]}>
         {/* En-tête officiel */}
-        <ThemedView style={styles.header}>
-          <ThemedView style={styles.logoContainer}>
+        <View style={[styles.header, { borderBottomColor: '#e0e0e0' }]}>
+          <View style={[styles.logoContainer, { backgroundColor: theme.colors.primary + '15' }]}>
             <FontAwesome 
               name={isPregnancy ? 'heart' : 'child'} 
-              size={40} 
+              size={36} 
               color={theme.colors.primary} 
             />
-          </ThemedView>
+          </View>
           <ThemedText 
-            size="xl" 
+            size="lg" 
             weight="bold" 
-            style={[styles.title, { color: theme.colors.primary }]}
+            style={StyleSheet.flatten([styles.title, { color: theme.colors.primary }])}
           >
             RÉPUBLIQUE D'HAÏTI
           </ThemedText>
           <ThemedText 
-            size="lg" 
+            size="base" 
             weight="semibold"
-            style={styles.subtitle}
+            style={StyleSheet.flatten([styles.subtitle, { color: '#1a1a1a' }])}
           >
             {isPregnancy ? 'ATTESTATION DE GROSSESSE' : 'ATTESTATION DE NAISSANCE'}
           </ThemedText>
           <ThemedText 
-            size="sm" 
-            variant="secondary"
-            style={styles.subtitle2}
+            size="xs" 
+            style={StyleSheet.flatten([styles.subtitle2, { color: '#666666' }])}
           >
             Document Provisoire
           </ThemedText>
-        </ThemedView>
+        </View>
 
         {/* Corps du document */}
-        <ThemedView style={styles.body}>
-          <ThemedText size="base" style={styles.paragraph}>
-            Je soussigné(e), <ThemedText weight="semibold">Agent de Terrain</ThemedText> du système GraceRegistry,
+        <View style={styles.body}>
+          <ThemedText size="sm" style={StyleSheet.flatten([styles.paragraph, { color: '#1a1a1a' }])}>
+            Je soussigné(e), <ThemedText weight="semibold" style={{ color: '#1a1a1a' }}>Agent de Terrain</ThemedText> du système GraceRegistry,
           </ThemedText>
 
-          <ThemedText size="base" style={styles.paragraph}>
-            <ThemedText weight="semibold">ATTESTE</ThemedText> avoir enregistré {isPregnancy ? 'la grossesse' : 'la naissance'} suivante :
+          <ThemedText size="sm" style={StyleSheet.flatten([styles.paragraph, { color: '#1a1a1a' }])}>
+            <ThemedText weight="semibold" style={{ color: '#1a1a1a' }}>ATTESTE</ThemedText> avoir enregistré {isPregnancy ? 'la grossesse' : 'la naissance'} suivante :
           </ThemedText>
 
           {/* Informations principales */}
-          <ThemedView style={styles.infoSection}>
+          <View style={[styles.infoSection, { 
+            backgroundColor: '#f8f9fa',
+            borderColor: '#dee2e6' 
+          }]}>
             {isPregnancy ? (
               <>
-                <ThemedView style={styles.infoRow}>
-                  <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                  <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                     Nom de la mère :
                   </ThemedText>
-                  <ThemedText size="base" style={styles.infoValue}>
+                  <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                     {pregnancyData?.motherName || personName}
                   </ThemedText>
-                </ThemedView>
+                </View>
                 
                 {pregnancyData?.location && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Lieu :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                       {pregnancyData.location}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
 
                 {pregnancyData?.estimatedDeliveryDate && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6', borderBottomWidth: 0 }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Date prévue d'accouchement :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
-                      {pregnancyData.estimatedDeliveryDate}
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
+                      {formatDateSafe(pregnancyData.estimatedDeliveryDate)}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
               </>
             ) : (
               <>
-                <ThemedView style={styles.infoRow}>
-                  <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                  <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                     Nom de l'enfant :
                   </ThemedText>
-                  <ThemedText size="base" style={styles.infoValue}>
+                  <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                     {birthData?.childFirstName && birthData?.childName
                       ? `${birthData.childFirstName} ${birthData.childName}`
                       : birthData?.childName || personName}
                   </ThemedText>
-                </ThemedView>
+                </View>
 
                 {birthData?.birthDate && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Date de naissance :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
-                      {new Date(birthData.birthDate).toLocaleDateString('fr-FR')}
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
+                      {formatDateSafe(birthData.birthDate)}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
 
                 {birthData?.birthPlace && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Lieu de naissance :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                       {birthData.birthPlace}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
 
                 {birthData?.motherName && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6' }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Nom de la mère :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                       {birthData.motherName}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
 
                 {birthData?.fatherName && (
-                  <ThemedView style={styles.infoRow}>
-                    <ThemedText size="base" weight="semibold" style={styles.infoLabel}>
+                  <View style={[styles.infoRow, { borderBottomColor: '#dee2e6', borderBottomWidth: 0 }]}>
+                    <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.infoLabel, { color: '#1a1a1a' }])}>
                       Nom du père :
                     </ThemedText>
-                    <ThemedText size="base" style={styles.infoValue}>
+                    <ThemedText size="sm" style={StyleSheet.flatten([styles.infoValue, { color: '#1a1a1a' }])}>
                       {birthData.fatherName}
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 )}
               </>
             )}
-          </ThemedView>
+          </View>
 
           {/* Référence */}
-          <ThemedView style={styles.referenceSection}>
-            <ThemedText size="sm" variant="secondary" style={styles.referenceLabel}>
+          <View style={[styles.referenceSection, { 
+            backgroundColor: '#f8f9fa',
+            borderColor: theme.colors.primary + '40'
+          }]}>
+            <ThemedText size="xs" style={StyleSheet.flatten([styles.referenceLabel, { color: '#666666' }])}>
               Numéro de référence :
             </ThemedText>
-            <ThemedText size="base" weight="semibold" style={[styles.referenceNumber, { color: theme.colors.primary }]}>
+            <ThemedText size="sm" weight="semibold" style={StyleSheet.flatten([styles.referenceNumber, { color: theme.colors.primary }])}>
               {referenceNumber}
             </ThemedText>
-          </ThemedView>
+          </View>
 
           {/* Date de génération */}
-          <ThemedView style={styles.dateSection}>
-            <ThemedText size="sm" variant="secondary">
+          <View style={styles.dateSection}>
+            <ThemedText size="xs" style={{ color: '#666666' }}>
               Date de génération : {generationDate}
             </ThemedText>
-          </ThemedView>
+          </View>
 
           {/* Statut */}
-          <ThemedView style={styles.statusSection}>
-            <ThemedView 
+          <View style={styles.statusSection}>
+            <View 
               style={[
                 styles.statusBadge,
                 { backgroundColor: status === 'valid' ? theme.colors.success + '20' : theme.colors.warning + '20' }
               ]}
             >
               <ThemedText 
-                size="sm" 
+                size="xs" 
                 weight="semibold"
                 style={{ color: status === 'valid' ? theme.colors.success : theme.colors.warning }}
               >
                 {status === 'valid' ? '✓ Validé' : '⏳ En attente de validation'}
               </ThemedText>
-            </ThemedView>
-          </ThemedView>
+            </View>
+          </View>
 
           {/* Avertissement */}
-          <ThemedView style={styles.warningSection}>
-            <ThemedText size="xs" variant="secondary" style={styles.warningText}>
+          <View style={[styles.warningSection, { 
+            backgroundColor: theme.colors.warning + '15',
+            borderLeftColor: theme.colors.warning
+          }]}>
+            <ThemedText size="xs" style={StyleSheet.flatten([styles.warningText, { color: '#856404' }])}>
               ⚠️ Ce document est provisoire et en attente de validation officielle par l'administration.
               Le certificat officiel sera émis après validation.
             </ThemedText>
-          </ThemedView>
-        </ThemedView>
+          </View>
+        </View>
 
         {/* Pied de page */}
-        <ThemedView style={styles.footer}>
-          <ThemedText size="xs" variant="secondary" style={styles.footerText}>
+        <View style={[styles.footer, { borderTopColor: '#e0e0e0' }]}>
+          <ThemedText size="xs" style={StyleSheet.flatten([styles.footerText, { color: '#666666' }])}>
             GraceRegistry - Système d'enregistrement des naissances
           </ThemedText>
-          <ThemedText size="xs" variant="secondary" style={styles.footerText}>
+          <ThemedText size="xs" style={StyleSheet.flatten([styles.footerText, { color: '#666666' }])}>
             Document généré automatiquement
           </ThemedText>
-        </ThemedView>
-      </ThemedCard>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -248,77 +278,111 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 150, // Espace en bas pour que la dernière carte soit complètement visible
   },
   document: {
-    padding: 24,
+    padding: 28,
     marginBottom: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
+    paddingBottom: 20,
     borderBottomWidth: 2,
-    borderBottomColor: '#e0e0e0',
-    paddingBottom: 24,
   },
   logoContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   title: {
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   subtitle: {
     marginTop: 8,
     textAlign: 'center',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   subtitle2: {
     textAlign: 'center',
     fontStyle: 'italic',
+    marginTop: 4,
   },
   body: {
     marginBottom: 24,
   },
   paragraph: {
     marginBottom: 16,
-    lineHeight: 24,
+    lineHeight: 22,
     textAlign: 'justify',
+    letterSpacing: 0.1,
   },
   infoSection: {
-    marginVertical: 24,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    marginVertical: 20,
+    padding: 18,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
   infoRow: {
     flexDirection: 'row',
     marginBottom: 12,
     flexWrap: 'wrap',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    alignItems: 'flex-start',
   },
   infoLabel: {
     minWidth: 150,
-    marginRight: 8,
+    marginRight: 12,
+    marginTop: 1,
   },
   infoValue: {
     flex: 1,
+    fontWeight: '500',
+    marginTop: 1,
   },
   referenceSection: {
-    marginVertical: 24,
-    padding: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    marginVertical: 20,
+    padding: 18,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
   },
   referenceLabel: {
-    marginBottom: 8,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   referenceNumber: {
-    fontSize: 18,
-    letterSpacing: 1,
+    fontSize: 16,
+    letterSpacing: 2,
+    fontWeight: 'bold',
+    marginTop: 4,
   },
   dateSection: {
-    marginBottom: 16,
+    marginBottom: 20,
     alignItems: 'flex-end',
   },
   statusSection: {
@@ -326,31 +390,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 28,
+    minWidth: 220,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   warningSection: {
-    marginTop: 24,
-    padding: 12,
-    backgroundColor: '#fff3cd',
-    borderRadius: 8,
+    marginTop: 20,
+    padding: 14,
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#ffc107',
   },
   warningText: {
-    lineHeight: 18,
+    lineHeight: 20,
   },
   footer: {
-    marginTop: 32,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    marginTop: 24,
+    paddingTop: 18,
+    borderTopWidth: 1.5,
     alignItems: 'center',
   },
   footerText: {
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });
 

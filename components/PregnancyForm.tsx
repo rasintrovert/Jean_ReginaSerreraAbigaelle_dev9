@@ -111,29 +111,25 @@ export function PregnancyForm({ translationPrefix, onSuccess, onCancel }: Pregna
     try {
       const fullData: PregnancyFormData = { ...step1Data, ...step2Data };
       
-      // Mapper les données du formulaire vers le format du store
-      const motherName = [
-        ...(fullData.motherFirstNames || []).filter(n => n.trim()),
-        fullData.motherLastName
-      ].join(' ').trim();
-
-      const location = [
-        fullData.motherAddress,
-        fullData.motherCity,
-        fullData.motherDepartment
-      ].filter(Boolean).join(', ');
-
-      // Utiliser estimatedDeliveryDate ou estimatedDeliveryMonth comme lastMenstruationDate
-      // (Note: dans un vrai projet, on calculerait la date de dernière menstruation)
-      const lastMenstruationDate = fullData.estimatedDeliveryDate || fullData.estimatedDeliveryMonth || new Date().toISOString();
-
-      // Sauvegarder dans le store (qui gère SQLite et Firestore)
+      // Sauvegarder directement tous les champs du formulaire avec leurs noms d'origine
+      // Pas de transformation - les données doivent être identiques au formulaire
       await addPregnancy({
-        motherName,
-        fatherName: '', // Le formulaire ne demande pas le père pour l'instant
-        lastMenstruationDate,
-        location,
-        prenatalCare: true, // Par défaut, on peut l'ajouter au formulaire plus tard
+        // Étape 1 : Informations de la mère
+        motherFirstNames: fullData.motherFirstNames || [],
+        motherLastName: fullData.motherLastName,
+        motherBirthDate: fullData.motherBirthDate,
+        motherPhone: fullData.motherPhone,
+        motherPhoneAlt: fullData.motherPhoneAlt,
+        motherAddress: fullData.motherAddress,
+        motherCity: fullData.motherCity,
+        motherDepartment: fullData.motherDepartment,
+        motherBloodGroup: fullData.motherBloodGroup,
+        // Étape 2 : Informations de grossesse
+        estimatedDeliveryDate: fullData.estimatedDeliveryDate,
+        estimatedDeliveryMonth: fullData.estimatedDeliveryMonth,
+        pregnancyCount: fullData.pregnancyCount,
+        healthCondition: fullData.healthCondition,
+        notes: fullData.notes,
       });
 
       Alert.alert(
@@ -471,8 +467,8 @@ export function PregnancyForm({ translationPrefix, onSuccess, onCancel }: Pregna
                       >
                         {value
                           ? (currentLanguage === 'fr'
-                            ? HAITIAN_DEPARTMENTS.find(d => d.code === value)?.name
-                            : HAITIAN_DEPARTMENTS.find(d => d.code === value)?.nameKr) || value
+                            ? HAITIAN_DEPARTMENTS.find(d => d.name === value || d.code === value)?.name
+                            : HAITIAN_DEPARTMENTS.find(d => d.name === value || d.code === value)?.nameKr) || value
                           : t(getTranslationKey('motherDepartment'))}
                       </ThemedText>
                       <FontAwesome name="chevron-down" size={16} color={theme.colors.textSecondary} />
@@ -512,24 +508,25 @@ export function PregnancyForm({ translationPrefix, onSuccess, onCancel }: Pregna
                                 style={[
                                   styles.modalOption,
                                   {
-                                    backgroundColor: value === dept.code 
+                                    backgroundColor: value === dept.name 
                                       ? theme.colors.primary + '20' 
                                       : theme.colors.surface,
-                                    borderColor: value === dept.code 
+                                    borderColor: value === dept.name 
                                       ? theme.colors.primary 
                                       : theme.colors.border,
                                   }
                                 ]}
                                 onPress={() => {
-                                  onChange(dept.code);
+                                  // Sauvegarder le nom complet au lieu du code
+                                  onChange(dept.name);
                                   setShowDepartmentModal(false);
                                 }}
                               >
                                 <ThemedText
                                   size="base"
-                                  weight={value === dept.code ? 'semibold' : 'normal'}
+                                  weight={value === dept.name ? 'semibold' : 'normal'}
                                   style={{
-                                    color: value === dept.code ? theme.colors.primary : theme.colors.text,
+                                    color: value === dept.name ? theme.colors.primary : theme.colors.text,
                                   }}
                                 >
                                   {currentLanguage === 'fr' ? dept.name : dept.nameKr}

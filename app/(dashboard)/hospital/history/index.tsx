@@ -11,15 +11,18 @@ import { FontAwesome } from '@expo/vector-icons';
 import { format, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getRecordsForValidation } from '@/services/admin/adminService';
+import { formatDateSafe } from '@/utils/date';
 
 type TabType = 'all' | 'pregnancy' | 'birth';
 type PeriodFilter = 'thisWeek' | 'thisMonth' | 'lastMonth';
 
 interface Record {
   id: string;
+  firestoreId?: string;
   type: 'pregnancy' | 'birth';
   referenceNumber: string;
   date: string;
@@ -28,6 +31,7 @@ interface Record {
   childName?: string;
   motherName?: string;
   fatherName?: string;
+  createdAt?: any;
 }
 
 export default function HospitalHistoryScreen() {
@@ -39,81 +43,156 @@ export default function HospitalHistoryScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('thisWeek');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [records, setRecords] = useState<Record[]>([]);
 
-  // Données simulées - formatées selon les spécifications
-  const mockRecords: Record[] = [
-    {
-      id: '1',
-      type: 'pregnancy',
-      referenceNumber: 'PR-2025-001',
-      date: '2025-10-28',
-      recordedBy: 'Dr. Marie Jean',
-      recordedByTitle: 'Médecin',
-      motherName: 'Sophie Laurent',
-    },
-    {
-      id: '2',
-      type: 'birth',
-      referenceNumber: 'INPR-2025-10-28-001',
-      date: '2025-10-28',
-      recordedBy: 'Dr. Jean Baptiste',
-      recordedByTitle: 'Gynécologue',
-      childName: 'Marie Sophie',
-      motherName: 'Sophie Laurent',
-      fatherName: 'Pierre Jean',
-    },
-    {
-      id: '3',
-      type: 'pregnancy',
-      referenceNumber: 'PR-2025-002',
-      date: '2025-10-27',
-      recordedBy: 'Dr. Marie Jean',
-      recordedByTitle: 'Médecin',
-      motherName: 'Claire Antoine',
-    },
-    {
-      id: '4',
-      type: 'birth',
-      referenceNumber: 'INPR-2025-10-27-002',
-      date: '2025-10-27',
-      recordedBy: 'Dr. Jean Baptiste',
-      recordedByTitle: 'Gynécologue',
-      childName: 'Pierre Jean',
-      motherName: 'Claire Antoine',
-      fatherName: 'Marc Antoine',
-    },
-    {
-      id: '5',
-      type: 'pregnancy',
-      referenceNumber: 'PR-2025-003',
-      date: '2025-10-26',
-      recordedBy: 'Dr. Marie Joseph',
-      recordedByTitle: 'Médecin',
-      motherName: 'Anne Marie',
-    },
-    {
-      id: '6',
-      type: 'birth',
-      referenceNumber: 'INPR-2025-10-26-003',
-      date: '2025-10-26',
-      recordedBy: 'Dr. Marie Joseph',
-      recordedByTitle: 'Gynécologue',
-      childName: 'Sophie Claire',
-      motherName: 'Anne Marie',
-      fatherName: 'Jean Paul',
-    },
-    {
-      id: '7',
-      type: 'pregnancy',
-      referenceNumber: 'PR-2025-004',
-      date: '2025-10-25',
-      recordedBy: 'Dr. Marie Jean',
-      recordedByTitle: 'Médecin',
-      motherName: 'Lucie Pierre',
-    },
-  ];
+  // Charger les enregistrements validés depuis Firestore
+  useEffect(() => {
+    loadRecords();
+  }, [periodFilter]);
 
-  const filteredRecords = mockRecords.filter(record => {
+  const loadRecords = async () => {
+    try {
+      setIsLoading(true);
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+
+      // Filtrer uniquement les enregistrements validés
+      const validatedPregnancies = allPregnancies.filter(
+        (r: any) => r.validationStatus === 'validated'
+      );
+      const validatedBirths = allBirths.filter(
+        (r: any) => r.validationStatus === 'validated'
+      );
+
+      // Transformer les grossesses en format Record
+      const pregnancyRecords: Record[] = validatedPregnancies.map((p: any) => {
+        const motherName = p.motherFirstNames && p.motherLastName
+          ? [...p.motherFirstNames, p.motherLastName].join(' ')
+          : p.motherName || 'N/A';
+        
+        const recordedBy = p.recordedBy || 'Agent';
+        const recordedByTitle = p.recordedByType === 'hospital' ? 'Hôpital' : 
+                                p.recordedByType === 'admin' ? 'Admin' : 'Agent';
+
+        // Gérer les différents formats de date (Timestamp Firestore, string ISO, Date)
+        let createdAt: Date;
+        if (p.createdAt?.toDate) {
+          createdAt = p.createdAt.toDate();
+        } else if (typeof p.createdAt === 'string') {
+          createdAt = new Date(p.createdAt);
+        } else if (p.createdAt instanceof Date) {
+          createdAt = p.createdAt;
+        } else {
+          createdAt = new Date();
+        }
+        
+        return {
+          id: p.id || p.firestoreId || '',
+          firestoreId: p.firestoreId || p.id,
+          type: 'pregnancy' as const,
+          referenceNumber: `PR-${createdAt.getFullYear()}-${String(p.id || '').slice(-6).padStart(6, '0')}`,
+          date: formatDateSafe(createdAt, 'yyyy-MM-dd') || createdAt.toISOString().split('T')[0],
+          recordedBy,
+          recordedByTitle,
+          motherName,
+          createdAt,
+        };
+      });
+
+      // Transformer les naissances en format Record
+      const birthRecords: Record[] = validatedBirths.map((b: any) => {
+        const childName = b.childFirstNames && b.childLastName
+          ? [...b.childFirstNames, b.childLastName].join(' ')
+          : b.childName || 'N/A';
+        
+        const motherName = b.motherFirstNames && b.motherLastName
+          ? [...b.motherFirstNames, b.motherLastName].join(' ')
+          : b.motherName || 'N/A';
+        
+        const fatherName = b.fatherFirstNames && b.fatherLastName
+          ? [...b.fatherFirstNames, b.fatherLastName].join(' ')
+          : b.fatherName || undefined;
+
+        const recordedBy = b.recordedBy || 'Agent';
+        const recordedByTitle = b.recordedByType === 'hospital' ? 'Hôpital' : 
+                                b.recordedByType === 'admin' ? 'Admin' : 'Agent';
+
+        // Gérer les différents formats de date (Timestamp Firestore, string ISO, Date)
+        let createdAt: Date;
+        if (b.createdAt?.toDate) {
+          createdAt = b.createdAt.toDate();
+        } else if (typeof b.createdAt === 'string') {
+          createdAt = new Date(b.createdAt);
+        } else if (b.createdAt instanceof Date) {
+          createdAt = b.createdAt;
+        } else {
+          createdAt = new Date();
+        }
+        
+        return {
+          id: b.id || b.firestoreId || '',
+          firestoreId: b.firestoreId || b.id,
+          type: 'birth' as const,
+          referenceNumber: `INPR-${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}-${String(createdAt.getDate()).padStart(2, '0')}-${String(b.id || '').slice(-3).padStart(3, '0')}`,
+          date: formatDateSafe(createdAt, 'yyyy-MM-dd') || createdAt.toISOString().split('T')[0],
+          recordedBy,
+          recordedByTitle,
+          childName,
+          motherName,
+          fatherName,
+          createdAt,
+        };
+      });
+
+      // Combiner et trier par date (plus récent en premier)
+      const allRecords = [...pregnancyRecords, ...birthRecords].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      // Appliquer le filtre de période
+      const now = new Date();
+      let periodStart: Date;
+      
+      switch (periodFilter) {
+        case 'thisWeek':
+          periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'thisMonth':
+          periodStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'lastMonth':
+          periodStart = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+          const lastMonthEnd = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const filtered = allRecords.filter(r => {
+            const recordDate = r.createdAt ? new Date(r.createdAt) : new Date(0);
+            return recordDate >= periodStart && recordDate < lastMonthEnd;
+          });
+          setRecords(filtered);
+          return;
+        default:
+          setRecords(allRecords);
+          return;
+      }
+
+      const filtered = allRecords.filter(r => {
+        const recordDate = r.createdAt ? new Date(r.createdAt) : new Date(0);
+        return recordDate >= periodStart;
+      });
+
+      setRecords(filtered);
+    } catch (error) {
+      console.error('Error loading hospital history:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredRecords = records.filter(record => {
     const matchesSearch = searchQuery === '' || 
       record.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.motherName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -448,8 +527,17 @@ export default function HospitalHistoryScreen() {
 
       {/* 2️⃣ PARTIE 2: CONTENU PRINCIPAL */}
       <ThemedView variant="transparent" style={{ flex: 1 }}>
-        {/* Onglets de catégories */}
-        <ThemedView variant="transparent" style={styles.tabsContainer}>
+        {isLoading ? (
+          <ThemedView variant="transparent" style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <ThemedText variant="secondary" size="base" style={styles.loadingText}>
+              {t('common.loading') || 'Chargement...'}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <>
+            {/* Onglets de catégories */}
+            <ThemedView variant="transparent" style={styles.tabsContainer}>
           <Pressable
             style={({ pressed }) => [
               styles.tab,
@@ -550,7 +638,8 @@ export default function HospitalHistoryScreen() {
               }}
               contentContainerStyle={[
                 styles.flatListContent,
-                isTablet && styles.flatListContentTablet
+                isTablet && styles.flatListContentTablet,
+                { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
               ]}
               showsVerticalScrollIndicator={false}
             />
@@ -562,7 +651,8 @@ export default function HospitalHistoryScreen() {
             renderItem={({ item }) => renderPregnancyCard(item)}
             contentContainerStyle={[
               styles.flatListContent,
-              isTablet && styles.flatListContentTablet
+              isTablet && styles.flatListContentTablet,
+              { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
             ]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
@@ -583,7 +673,8 @@ export default function HospitalHistoryScreen() {
             renderItem={({ item }) => renderBirthCard(item)}
             contentContainerStyle={[
               styles.flatListContent,
-              isTablet && styles.flatListContentTablet
+              isTablet && styles.flatListContentTablet,
+              { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
             ]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
@@ -597,6 +688,8 @@ export default function HospitalHistoryScreen() {
               </ThemedCard>
             }
           />
+        )}
+          </>
         )}
       </ThemedView>
     </ScreenContainer>
@@ -686,7 +779,7 @@ const styles = StyleSheet.create({
   // PARTIE 2: CONTENU
   flatListContent: {
     padding: 16,
-    paddingBottom: 100,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   flatListContentTablet: {
     paddingHorizontal: 32,
@@ -761,5 +854,14 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 16,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 16,
   },
 });

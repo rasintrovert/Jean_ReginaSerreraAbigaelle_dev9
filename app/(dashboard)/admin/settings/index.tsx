@@ -95,7 +95,8 @@ export default function AdminSettingsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -339,25 +340,8 @@ export default function AdminSettingsScreen() {
           </View>
         </ThemedCard>
 
-        {/* Section À propos */}
+        {/* Section Aide */}
         <ThemedCard style={styles.sectionCard}>
-          <ThemedView variant="transparent" style={styles.sectionHeader}>
-            <FontAwesome
-              name="info-circle"
-              size={20}
-              color={theme.colors.primary}
-              style={styles.sectionIcon}
-            />
-            <ThemedView variant="transparent" style={styles.sectionHeaderText}>
-              <ThemedText size="lg" weight="semibold" style={styles.sectionTitle}>
-                {t('admin.settings.aboutTitle') || t('agent.settings.aboutTitle')}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.sectionSubtitle}>
-                {t('admin.settings.aboutSubtitle') || t('agent.settings.aboutSubtitle')}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-
           <PressableButton
             variant="outline"
             size="md"
@@ -366,17 +350,11 @@ export default function AdminSettingsScreen() {
             accessibilityLabel={t('admin.settings.help') || t('agent.settings.help')}
             style={styles.helpButton}
           >
-            <FontAwesome name="question-circle" size={16} color={theme.colors.primary} />
+            <FontAwesome name="info-circle" size={16} color={theme.colors.primary} />
             <ThemedText size="base" weight="semibold" style={{ color: theme.colors.primary, marginLeft: 8 }}>
               {t('admin.settings.help') || t('agent.settings.help')}
             </ThemedText>
           </PressableButton>
-
-          <ThemedView variant="transparent" style={styles.versionContainer}>
-            <ThemedText variant="secondary" size="sm" style={styles.versionText}>
-              {t('admin.settings.version') || t('agent.settings.version')}
-            </ThemedText>
-          </ThemedView>
         </ThemedCard>
 
         {/* Section Cache */}
@@ -439,7 +417,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,

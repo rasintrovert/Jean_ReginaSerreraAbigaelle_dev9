@@ -14,6 +14,7 @@ export default function AdminLayout() {
       <Stack.Screen name="users/index" />
       <Stack.Screen name="validation/index" />
       <Stack.Screen name="statistics/index" />
+      <Stack.Screen name="emergency/index" />
       <Stack.Screen name="help/index" />
       <Stack.Screen name="settings/index" />
       <Stack.Screen name="profile/index" />

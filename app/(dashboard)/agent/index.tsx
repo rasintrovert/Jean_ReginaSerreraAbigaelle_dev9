@@ -10,15 +10,69 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/store/authStore';
+import { getUserById, AdminUser } from '@/services/admin/userService';
 
 export default function AgentDashboard() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [profile, setProfile] = useState<AdminUser | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const { user } = useAuthStore();
+
+  // Charger le profil utilisateur
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) {
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      try {
+        setIsLoadingProfile(true);
+        const userProfile = await getUserById(user.id);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
+
+  // Obtenir le nom complet
+  const getFullName = (user: AdminUser | null) => {
+    if (!user) return '';
+    const firstNames = user.firstNames?.filter(fn => fn.trim()).join(' ') || '';
+    return `${firstNames} ${user.lastName}`.trim();
+  };
+
+  // Obtenir le nom du département
+  const getDepartmentName = (code?: string) => {
+    if (!code) return '';
+    const departments: Record<string, string> = {
+      'OU': 'Ouest',
+      'NO': 'Nord-Ouest',
+      'NE': 'Nord-Est',
+      'N': 'Nord',
+      'AR': 'Artibonite',
+      'CE': 'Centre',
+      'SD': 'Sud',
+      'SE': 'Sud-Est',
+      'NI': 'Nippes',
+      'GA': 'Grand\'Anse',
+    };
+    return departments[code] || code;
+  };
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -41,11 +95,6 @@ export default function AgentDashboard() {
         router.push('/(dashboard)/agent/help' as any);
         break;
     }
-  };
-
-  const handleNotificationPress = () => {
-    // TODO: Ouvrir les notifications
-    console.log('Ouvrir notifications');
   };
 
   const handleSettingsPress = () => {
@@ -95,9 +144,10 @@ export default function AgentDashboard() {
         style={{ backgroundColor: 'transparent' }}
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 100 } // SafeArea + hauteur de la barre de navigation + espace supplémentaire
         ]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {/* 1️⃣ En-tête avec profil et icônes fonctionnelles */}
         <ThemedView 
@@ -127,34 +177,26 @@ export default function AgentDashboard() {
                 style={StyleSheet.flatten([styles.userName, { color: '#fff' }])}
                 accessibilityLabel="Nom de l'utilisateur"
               >
-                Jean Dupont
+                {isLoadingProfile ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  getFullName(profile) || t('common.loading') || 'Chargement...'
+                )}
               </ThemedText>
               <ThemedText 
                 size="sm"
                 style={StyleSheet.flatten([styles.userRole, { color: 'rgba(255, 255, 255, 0.9)' }])}
                 accessibilityLabel="Rôle de l'utilisateur"
               >
-                Agent - Zone Sud
+                {profile?.department 
+                  ? `${t('roles.agent')} - ${getDepartmentName(profile.department)}`
+                  : t('roles.agent')
+                }
               </ThemedText>
             </ThemedView>
           </ThemedView>
           
           <ThemedView variant="transparent" style={styles.headerActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerIconButton,
-                pressed && { opacity: 0.7 }
-              ]}
-              onPress={handleNotificationPress}
-              accessibilityLabel={t('agent.profile.notifications')}
-              accessibilityHint={t('agent.profile.notifications')}
-            >
-              <FontAwesome 
-                name="bell" 
-                size={isTablet ? 24 : 20} 
-                color={theme.colors.textSecondary} 
-              />
-            </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.headerIconButton,
@@ -573,13 +615,13 @@ export default function AgentDashboard() {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: 0,
-    paddingBottom: 100, // Espace pour la navigation inférieure
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 0,
     maxWidth: '100%',
     alignSelf: 'stretch',
-    paddingBottom: 120,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   
   // 1️⃣ En-tête avec profil et icônes fonctionnelles

@@ -10,27 +10,45 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/store/authStore';
+import { getUserById, AdminUser } from '@/services/admin/userService';
 
 export default function HospitalDashboard() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [showAddModal, setShowAddModal] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [profile, setProfile] = useState<AdminUser | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const { user } = useAuthStore();
 
-  // Données simulées
-  const hospitalName = 'Hôpital Général de Port-au-Prince';
-  const statsThisWeek = {
-    pregnancies: 12,
-    births: 8,
-  };
-  const statsThisMonth = {
-    pregnancies: 45,
-    births: 32,
-  };
+  // Charger le profil utilisateur
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) {
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      try {
+        setIsLoadingProfile(true);
+        const userProfile = await getUserById(user.id);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -47,11 +65,6 @@ export default function HospitalDashboard() {
         router.push('/(dashboard)/hospital/search' as any);
         break;
     }
-  };
-
-  const handleNotificationPress = () => {
-    // TODO: Ouvrir les notifications
-    console.log('Ouvrir notifications');
   };
 
   const handleSettingsPress = () => {
@@ -92,7 +105,8 @@ export default function HospitalDashboard() {
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -128,22 +142,15 @@ export default function HospitalDashboard() {
                   weight="semibold"
                   style={styles.institutionName}
                 >
-                  {hospitalName}
+                  {isLoadingProfile ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    profile?.institutionName || t('hospital.dashboard.welcome') || 'Chargement...'
+                  )}
                 </ThemedText>
               </ThemedView>
             </ThemedView>
             <ThemedView variant="transparent" style={styles.headerActions}>
-              <Pressable
-                style={styles.headerIconButton}
-                onPress={handleNotificationPress}
-              >
-                <FontAwesome 
-                  name="bell" 
-                  size={isTablet ? 24 : 20} 
-                  color="#fff" 
-                />
-                <View style={styles.notificationBadge} />
-              </Pressable>
               <Pressable
                 style={styles.headerIconButton}
                 onPress={handleSettingsPress}
@@ -646,13 +653,13 @@ export default function HospitalDashboard() {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: 0,
-    paddingBottom: 100,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 0,
     maxWidth: '100%',
     alignSelf: 'stretch',
-    paddingBottom: 120,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   header: {
     paddingHorizontal: 16,
@@ -705,15 +712,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ff4444',
   },
   titleSection: {
     flexDirection: 'row',

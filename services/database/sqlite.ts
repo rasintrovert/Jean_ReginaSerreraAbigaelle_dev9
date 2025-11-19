@@ -9,13 +9,22 @@ import * as SQLite from 'expo-sqlite';
 
 // Instance de la base de données
 let db: SQLite.SQLiteDatabase | null = null;
+let isInitialized = false;
 
 /**
  * Obtenir ou créer la base de données
  */
 async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!db) {
-    db = await SQLite.openDatabaseAsync('graceregistry.db');
+    try {
+      db = await SQLite.openDatabaseAsync('graceregistry.db');
+      if (!db) {
+        throw new Error('Failed to open database');
+      }
+    } catch (error) {
+      console.error('Error opening database:', error);
+      throw error;
+    }
   }
   return db;
 }
@@ -25,8 +34,16 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
  * Crée les tables nécessaires
  */
 export async function initDatabase(): Promise<void> {
+  if (isInitialized) {
+    return; // Déjà initialisée
+  }
+
   try {
     const database = await getDatabase();
+    
+    if (!database) {
+      throw new Error('Database instance is null');
+    }
     
     // Table pour les enregistrements en attente de synchronisation
     await database.execAsync(`
@@ -71,9 +88,11 @@ export async function initDatabase(): Promise<void> {
       );
     `);
 
+    isInitialized = true;
     console.log('✅ Database initialized successfully');
   } catch (error) {
     console.error('❌ Database initialization error:', error);
+    isInitialized = false;
     throw error;
   }
 }
@@ -113,12 +132,22 @@ export async function querySql(
   params: any[] = []
 ): Promise<any[]> {
   try {
+    // S'assurer que la base de données est initialisée
+    if (!isInitialized) {
+      await initDatabase();
+    }
+    
     const database = await getDatabase();
+    if (!database) {
+      throw new Error('Database instance is null');
+    }
+    
     const result = await database.getAllAsync(sql, params);
-    return result;
+    return result || [];
   } catch (error) {
     console.error('SQL query error:', error);
-    throw error;
+    // Retourner un tableau vide en cas d'erreur plutôt que de planter
+    return [];
   }
 }
 
@@ -130,7 +159,16 @@ export async function runSql(
   params: any[] = []
 ): Promise<SQLite.SQLiteRunResult> {
   try {
+    // S'assurer que la base de données est initialisée
+    if (!isInitialized) {
+      await initDatabase();
+    }
+    
     const database = await getDatabase();
+    if (!database) {
+      throw new Error('Database instance is null');
+    }
+    
     return await database.runAsync(sql, params);
   } catch (error) {
     console.error('SQL run error:', error);

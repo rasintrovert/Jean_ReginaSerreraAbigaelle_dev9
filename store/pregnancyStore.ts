@@ -1,16 +1,37 @@
 import { create } from 'zustand';
-import { addToSyncQueue, loadPregnanciesFromSQLite } from '@/services/sync/syncService';
+import { addToSyncQueue, loadPregnanciesFromSQLite, deleteRecord } from '@/services/sync/syncService';
 import { useSyncStore } from './syncStore';
+import { useAuthStore } from './authStore';
 
+// Interface alignée avec les champs du formulaire PregnancyForm
 interface Pregnancy {
   id: string;
-  motherName: string;
-  fatherName: string;
-  lastMenstruationDate: string;
-  location: string;
-  prenatalCare: boolean;
+  // Étape 1 : Informations de la mère
+  motherFirstNames: string[];
+  motherLastName: string;
+  motherBirthDate: string;
+  motherPhone: string;
+  motherPhoneAlt?: string;
+  motherAddress: string;
+  motherCity: string;
+  motherDepartment: string;
+  motherBloodGroup?: string;
+  // Étape 2 : Informations de grossesse
+  estimatedDeliveryDate?: string;
+  estimatedDeliveryMonth?: string;
+  pregnancyCount: string;
+  healthCondition?: string;
+  notes?: string;
+  // Métadonnées
   status: 'pending' | 'synced';
+  validationStatus?: 'pending' | 'validated' | 'rejected'; // Statut de validation admin
+  recordedBy?: string; // Qui a créé l'enregistrement
+  recordedByType?: 'agent' | 'hospital' | 'admin'; // Type d'utilisateur
   createdAt: string;
+  // Champs calculés pour compatibilité (optionnels)
+  motherName?: string; // Pour compatibilité avec l'ancien code
+  location?: string; // Pour compatibilité avec l'ancien code
+  prenatalCare?: boolean; // Pour compatibilité avec l'ancien code
 }
 
 interface PregnancyState {
@@ -18,7 +39,7 @@ interface PregnancyState {
   isLoading: boolean;
   addPregnancy: (pregnancy: Omit<Pregnancy, 'id' | 'createdAt' | 'status'>) => Promise<void>;
   updatePregnancy: (id: string, data: Partial<Pregnancy>) => void;
-  deletePregnancy: (id: string) => void;
+  deletePregnancy: (id: string, firestoreId?: string) => Promise<void>;
   syncPregnancies: () => Promise<void>;
   loadPregnancies: () => Promise<void>;
 }
@@ -28,11 +49,19 @@ export const usePregnancyStore = create<PregnancyState>((set, get) => ({
   isLoading: false,
   
   addPregnancy: async (pregnancy) => {
+    // Récupérer les informations de l'utilisateur connecté
+    const { user } = useAuthStore.getState();
+    const recordedBy = user?.name || user?.email || 'Unknown';
+    const recordedByType = user?.role || 'agent';
+    
     const newPregnancy: Pregnancy = {
       ...pregnancy,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
       status: 'pending',
+      validationStatus: 'pending', // Statut de validation admin
+      recordedBy, // Qui a créé l'enregistrement
+      recordedByType, // Type d'utilisateur (agent, hospital, admin)
     };
     
     // Sauvegarder dans SQLite (via syncService)
@@ -64,9 +93,22 @@ export const usePregnancyStore = create<PregnancyState>((set, get) => ({
     }));
   },
   
-  deletePregnancy: (id) => {
+  deletePregnancy: async (id, firestoreId) => {
+    // Supprimer de SQLite et Firestore
+    try {
+      await deleteRecord('pregnancy', id, firestoreId);
+      console.log('✅ Pregnancy supprimée de SQLite et Firestore');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      // On continue quand même pour mettre à jour le store local
+    }
+    
+    // Mettre à jour le store local
     set((state) => ({
-      pregnancies: state.pregnancies.filter((p) => p.id !== id),
+      pregnancies: state.pregnancies.filter((p) => {
+        // Supprimer si l'ID local ou firestoreId correspond
+        return p.id !== id && (firestoreId ? (p as any).firestoreId !== firestoreId : true);
+      }),
     }));
   },
   

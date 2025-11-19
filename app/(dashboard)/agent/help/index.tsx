@@ -407,7 +407,8 @@ export default function HelpScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,

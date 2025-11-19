@@ -17,6 +17,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { createEmergencyReport } from '@/services/emergency/emergencyService';
 
 // Schéma de validation pour l'urgence
 const emergencySchema = z.object({
@@ -54,8 +55,14 @@ export default function EmergencyScreen() {
     setIsSending(true);
     
     try {
-      // Simulation d'envoi d'urgence
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Envoyer le signalement à Firestore
+      await createEmergencyReport({
+        emergencyType: data.emergencyType,
+        description: data.description,
+        location: data.location,
+        contactPhone: data.contactPhone,
+        urgencyLevel: data.urgencyLevel,
+      });
       
       Alert.alert(
         t('agent.emergency.reported'),
@@ -67,8 +74,12 @@ export default function EmergencyScreen() {
           },
         ]
       );
-    } catch (error) {
-      Alert.alert(t('common.error'), t('agent.emergency.sendReport'));
+    } catch (error: any) {
+      console.error('Error sending emergency report:', error);
+      Alert.alert(
+        t('common.error'), 
+        error.message || t('agent.emergency.sendReport') || 'Erreur lors de l\'envoi du signalement'
+      );
     } finally {
       setIsSending(false);
     }
@@ -174,7 +185,8 @@ export default function EmergencyScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -612,7 +624,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,

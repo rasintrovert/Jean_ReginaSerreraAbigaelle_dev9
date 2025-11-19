@@ -1,23 +1,55 @@
 import { create } from 'zustand';
-import { addToSyncQueue, loadBirthsFromSQLite } from '@/services/sync/syncService';
+import { addToSyncQueue, loadBirthsFromSQLite, deleteRecord } from '@/services/sync/syncService';
 import { useSyncStore } from './syncStore';
+import { useAuthStore } from './authStore';
 
+// Interface alignée avec les champs du formulaire BirthForm
 interface Birth {
   id: string;
-  childName: string;
-  childFirstName: string;
+  // Étape 1 : Informations de l'enfant
+  childFirstNames: string[];
+  childLastName: string;
   birthDate: string;
-  birthPlace: string;
+  birthTime: string;
   gender: 'male' | 'female' | 'other';
-  motherName: string;
-  motherId: string;
-  fatherName: string;
-  fatherId: string;
-  witnesses: string[];
+  birthPlaceType: string;
+  birthPlaceName: string;
+  birthAddress: string;
+  birthDepartment: string;
+  // Étape 2 : Informations des parents
+  motherFirstNames: string[];
+  motherLastName: string;
+  motherProfession: string;
+  motherAddress: string;
+  fatherFirstNames?: string[];
+  fatherLastName?: string;
+  fatherProfession?: string;
+  fatherAddress?: string;
+  // Étape 3 : Informations sur les témoins
+  witness1FirstNames: string[];
+  witness1LastName: string;
+  witness1Address: string;
+  witness2FirstNames: string[];
+  witness2LastName: string;
+  witness2Address: string;
+  pregnancyId?: string;
+  // Métadonnées
   certificateStatus: 'pending' | 'verified' | 'approved' | 'issued' | 'rejected';
+  validationStatus?: 'pending' | 'validated' | 'rejected'; // Statut de validation admin
+  recordedBy?: string; // Qui a créé l'enregistrement
+  recordedByType?: 'agent' | 'hospital' | 'admin'; // Type d'utilisateur
   certificateNumber?: string;
   createdAt: string;
   synced: boolean;
+  // Champs calculés pour compatibilité (optionnels)
+  childName?: string; // Pour compatibilité avec l'ancien code
+  childFirstName?: string; // Pour compatibilité avec l'ancien code
+  birthPlace?: string; // Pour compatibilité avec l'ancien code
+  motherName?: string; // Pour compatibilité avec l'ancien code
+  motherId?: string; // Pour compatibilité avec l'ancien code
+  fatherName?: string; // Pour compatibilité avec l'ancien code
+  fatherId?: string; // Pour compatibilité avec l'ancien code
+  witnesses?: string[]; // Pour compatibilité avec l'ancien code
 }
 
 interface BirthState {
@@ -25,7 +57,7 @@ interface BirthState {
   isLoading: boolean;
   addBirth: (birth: Omit<Birth, 'id' | 'createdAt' | 'synced' | 'certificateStatus'>) => Promise<void>;
   updateBirth: (id: string, data: Partial<Birth>) => void;
-  deleteBirth: (id: string) => void;
+  deleteBirth: (id: string, firestoreId?: string) => Promise<void>;
   updateCertificateStatus: (id: string, status: Birth['certificateStatus']) => void;
   syncBirths: () => Promise<void>;
   loadBirths: () => Promise<void>;
@@ -36,12 +68,20 @@ export const useBirthStore = create<BirthState>((set, get) => ({
   isLoading: false,
   
   addBirth: async (birth) => {
+    // Récupérer les informations de l'utilisateur connecté
+    const { user } = useAuthStore.getState();
+    const recordedBy = user?.name || user?.email || 'Unknown';
+    const recordedByType = user?.role || 'agent';
+    
     const newBirth: Birth = {
       ...birth,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
       certificateStatus: 'pending',
+      validationStatus: 'pending', // Statut de validation admin
       synced: false,
+      recordedBy, // Qui a créé l'enregistrement
+      recordedByType, // Type d'utilisateur (agent, hospital, admin)
     };
     
     // Sauvegarder dans SQLite (via syncService)
@@ -73,9 +113,22 @@ export const useBirthStore = create<BirthState>((set, get) => ({
     }));
   },
   
-  deleteBirth: (id) => {
+  deleteBirth: async (id, firestoreId) => {
+    // Supprimer de SQLite et Firestore
+    try {
+      await deleteRecord('birth', id, firestoreId);
+      console.log('✅ Birth supprimé de SQLite et Firestore');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      // On continue quand même pour mettre à jour le store local
+    }
+    
+    // Mettre à jour le store local
     set((state) => ({
-      births: state.births.filter((b) => b.id !== id),
+      births: state.births.filter((b) => {
+        // Supprimer si l'ID local ou firestoreId correspond
+        return b.id !== id && (firestoreId ? (b as any).firestoreId !== firestoreId : true);
+      }),
     }));
   },
   

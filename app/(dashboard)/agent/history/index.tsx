@@ -13,10 +13,12 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { usePregnancyStore } from '@/store/pregnancyStore';
 import { useBirthStore } from '@/store/birthStore';
 import { useTheme } from '@/theme';
+import { formatDate } from '@/utils/date';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Alert, FlatList, Modal, StyleSheet, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Types pour les données
 interface Proof {
@@ -35,6 +37,7 @@ export default function AgentHistory() {
   const { isTablet } = useResponsive();
   const { isLandscape } = useOrientation();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const { pregnancies, isLoading: isLoadingPregnancies } = usePregnancyStore();
   const { births, isLoading: isLoadingBirths } = useBirthStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,21 +52,34 @@ export default function AgentHistory() {
   // Transformer les données des stores en format Proof
   const proofs: Proof[] = useMemo(() => {
     const allProofs: Proof[] = [];
+    const seenIds = new Set<string>(); // Pour éviter les doublons
 
     // Ajouter les grossesses
     pregnancies.forEach((pregnancy) => {
       try {
+        // Utiliser firestoreId si disponible, sinon l'ID local
+        const uniqueId = pregnancy.firestoreId || pregnancy.id;
+        
+        // Éviter les doublons
+        if (seenIds.has(uniqueId)) {
+          console.log('⚠️ Duplicate pregnancy skipped:', uniqueId);
+          return;
+        }
+        seenIds.add(uniqueId);
+        
         const date = new Date(pregnancy.createdAt);
         const formattedDate = isNaN(date.getTime()) 
           ? new Date().toLocaleDateString('fr-FR')
           : date.toLocaleDateString('fr-FR');
         
         allProofs.push({
-          id: pregnancy.id,
+          id: uniqueId,
           type: 'pregnancy' as const,
-          referenceNumber: `PREGN-${pregnancy.id.slice(-8)}`,
+          referenceNumber: `PREGN-${uniqueId.slice(-8)}`,
           generationDate: formattedDate,
-          personName: pregnancy.motherName || 'N/A',
+          personName: pregnancy.motherFirstNames && pregnancy.motherLastName
+            ? [...pregnancy.motherFirstNames, pregnancy.motherLastName].join(' ')
+            : pregnancy.motherName || 'N/A',
           status: pregnancy.status === 'synced' ? 'valid' : 'pending',
           createdAt: pregnancy.createdAt, // Garder la date originale pour le tri
         });
@@ -75,20 +91,32 @@ export default function AgentHistory() {
     // Ajouter les naissances
     births.forEach((birth) => {
       try {
+        // Utiliser firestoreId si disponible, sinon l'ID local
+        const uniqueId = birth.firestoreId || birth.id;
+        
+        // Éviter les doublons
+        if (seenIds.has(uniqueId)) {
+          console.log('⚠️ Duplicate birth skipped:', uniqueId);
+          return;
+        }
+        seenIds.add(uniqueId);
+        
         const date = new Date(birth.createdAt);
         const formattedDate = isNaN(date.getTime()) 
           ? new Date().toLocaleDateString('fr-FR')
           : date.toLocaleDateString('fr-FR');
         
-        // Pour les naissances, utiliser le nom complet de l'enfant (prénom + nom)
-        const childFullName = birth.childFirstName && birth.childName 
+        // Pour les naissances, utiliser le nom complet de l'enfant (prénoms + nom)
+        const childFullName = birth.childFirstNames && birth.childLastName
+          ? [...birth.childFirstNames, birth.childLastName].filter(n => n.trim()).join(' ')
+          : birth.childFirstName && birth.childName
           ? `${birth.childFirstName} ${birth.childName}`.trim()
           : birth.childName || birth.childFirstName || 'N/A';
         
         allProofs.push({
-          id: birth.id,
+          id: uniqueId,
           type: 'birth' as const,
-          referenceNumber: `BIRTH-${birth.id.slice(-8)}`,
+          referenceNumber: `BIRTH-${uniqueId.slice(-8)}`,
           generationDate: formattedDate,
           personName: childFullName,
           status: birth.synced ? 'valid' : 'pending',
@@ -153,25 +181,72 @@ export default function AgentHistory() {
   const getProofData = (proof: Proof) => {
     if (proof.type === 'pregnancy') {
       const pregnancy = pregnancies.find(p => p.id === proof.id);
+      
+      // Construire motherName à partir des nouveaux champs
+      const motherName = pregnancy?.motherFirstNames && pregnancy?.motherLastName
+        ? [...pregnancy.motherFirstNames, pregnancy.motherLastName].join(' ')
+        : pregnancy?.motherName || proof.personName;
+      
+      // Construire location à partir des nouveaux champs
+      const location = pregnancy?.motherAddress && pregnancy?.motherCity && pregnancy?.motherDepartment
+        ? [pregnancy.motherAddress, pregnancy.motherCity, pregnancy.motherDepartment].filter(Boolean).join(', ')
+        : pregnancy?.location;
+      
+      // Utiliser estimatedDeliveryDate ou estimatedDeliveryMonth
+      const estimatedDeliveryDate = pregnancy?.estimatedDeliveryDate || pregnancy?.estimatedDeliveryMonth;
+      
+      // Formater la date de manière sécurisée
+      let formattedEstimatedDate: string | undefined;
+      if (estimatedDeliveryDate) {
+        try {
+          const date = new Date(estimatedDeliveryDate);
+          if (!isNaN(date.getTime())) {
+            formattedEstimatedDate = formatDate(estimatedDeliveryDate, 'dd MMMM yyyy');
+          } else {
+            // Si la date est invalide, utiliser formatDate qui peut gérer différents formats
+            formattedEstimatedDate = formatDate(estimatedDeliveryDate) || estimatedDeliveryDate;
+          }
+        } catch {
+          formattedEstimatedDate = estimatedDeliveryDate;
+        }
+      }
+      
       return {
         pregnancyData: {
-          motherName: pregnancy?.motherName || proof.personName,
-          location: pregnancy?.location,
-          estimatedDeliveryDate: pregnancy?.lastMenstruationDate 
-            ? new Date(pregnancy.lastMenstruationDate).toLocaleDateString('fr-FR')
-            : undefined,
+          motherName,
+          location,
+          estimatedDeliveryDate: formattedEstimatedDate,
         },
       };
     } else {
       const birth = births.find(b => b.id === proof.id);
+      
+      // Construire les noms à partir des nouveaux champs
+      const childFirstName = birth?.childFirstNames 
+        ? birth.childFirstNames.filter(n => n.trim()).join(' ')
+        : birth?.childFirstName || '';
+      const childName = birth?.childLastName || birth?.childName || '';
+      
+      const birthPlace = birth?.birthPlaceName && birth?.birthAddress && birth?.birthDepartment
+        ? [birth.birthPlaceName, birth.birthAddress, birth.birthDepartment].filter(Boolean).join(', ')
+        : birth?.birthPlace;
+      
+      const motherName = birth?.motherFirstNames && birth?.motherLastName
+        ? [...birth.motherFirstNames, birth.motherLastName].join(' ')
+        : birth?.motherName || '';
+      
+      const fatherName = birth?.fatherFirstNames && birth?.fatherLastName
+        ? [...birth.fatherFirstNames, birth.fatherLastName].join(' ')
+        : birth?.fatherName;
+      
       return {
         birthData: {
-          childName: birth?.childName || '',
-          childFirstName: birth?.childFirstName || '',
+          childName,
+          childFirstName,
           birthDate: birth?.birthDate || '',
-          birthPlace: birth?.birthPlace,
-          motherName: birth?.motherName || '',
-          fatherName: birth?.fatherName,
+          birthPlace,
+          motherName,
+          fatherName,
         },
       };
     }
@@ -287,6 +362,7 @@ export default function AgentHistory() {
           <FlatList
             data={filteredProofs}
             keyExtractor={(item) => item.id}
+            style={styles.flatList}
             renderItem={({ item: proof }) => (
               <ThemedCard 
                 style={styles.proofCard}
@@ -394,9 +470,11 @@ export default function AgentHistory() {
             )}
             contentContainerStyle={[
               styles.flatListContent,
-              isTablet && styles.flatListContentTablet
+              isTablet && styles.flatListContentTablet,
+              { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire pour la dernière carte
             ]}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
             ListEmptyComponent={
               <ThemedCard style={styles.emptyCard}>
                 <FontAwesome 
@@ -538,7 +616,7 @@ export default function AgentHistory() {
         animationType="slide"
         onRequestClose={() => setShowProofModal(false)}
       >
-        <ScreenContainer variant="background">
+        <ScreenContainer variant="background" style={{ flex: 1 }}>
           <ThemedView style={styles.proofModalHeader}>
             <Pressable
               onPress={() => setShowProofModal(false)}
@@ -569,9 +647,12 @@ export default function AgentHistory() {
   }
 
 const styles = StyleSheet.create({
+  flatList: {
+    flex: 1,
+  },
   flatListContent: {
     padding: 16,
-    paddingBottom: 100, // Espace pour la navigation inférieure
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   flatListContentTablet: {
     paddingHorizontal: 24,
@@ -635,6 +716,7 @@ const styles = StyleSheet.create({
   
   // 3️⃣ Section de liste - Aperçu des preuves générées
   proofsSection: {
+    flex: 1,
     marginBottom: 16,
   },
   sectionTitle: {

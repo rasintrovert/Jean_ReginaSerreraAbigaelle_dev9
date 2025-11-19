@@ -13,11 +13,13 @@ import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { getUserById, AdminUser } from '@/services/admin/userService';
+import { formatDateSafe } from '@/utils/date';
 
 // Schéma de validation pour le mot de passe
 const passwordSchema = z.object({
@@ -40,17 +42,33 @@ export default function AgentProfile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState<AdminUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Données simulées du profil
-  const mockProfile = {
-    firstName: 'Jean',
-    lastName: 'Pierre',
-    email: 'jean.pierre@graceregistry.ht',
-    phone: '+509 1234 5678',
-    location: 'Port-au-Prince',
-    registrationDate: '15/01/2024',
-    role: 'Agent de terrain',
-  };
+  const { user } = useAuthStore();
+
+  // Charger le profil utilisateur
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const userProfile = await getUserById(user.id);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        Alert.alert(t('common.error'), t('agent.profile.loadError') || 'Erreur lors du chargement du profil');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
 
   const {
     control: passwordControl,
@@ -104,38 +122,107 @@ export default function AgentProfile() {
   };
 
   // Générer les initiales pour l'avatar
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0).toUpperCase()}${lastName.charAt(0).toUpperCase()}`;
+  const getInitials = (firstNames: string[], lastName: string) => {
+    const firstInitial = firstNames && firstNames.length > 0 ? firstNames[0].charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+    return `${firstInitial}${lastInitial}`;
   };
 
-  const fullName = `${mockProfile.firstName} ${mockProfile.lastName}`;
-  const initials = getInitials(mockProfile.firstName, mockProfile.lastName);
+  // Obtenir le nom complet
+  const getFullName = (user: AdminUser | null) => {
+    if (!user) return '';
+    const firstNames = user.firstNames?.filter(fn => fn.trim()).join(' ') || '';
+    return `${firstNames} ${user.lastName}`.trim();
+  };
+
+  // Obtenir le nom du rôle traduit
+  const getRoleName = (role: string) => {
+    switch (role) {
+      case 'agent':
+        return t('roles.agent');
+      case 'admin':
+        return t('roles.admin');
+      case 'hospital':
+        return t('roles.hospital');
+      default:
+        return role;
+    }
+  };
+
+  // Obtenir le nom du département
+  const getDepartmentName = (code?: string) => {
+    if (!code) return '';
+    const departments: Record<string, string> = {
+      'OU': 'Ouest',
+      'NO': 'Nord-Ouest',
+      'NE': 'Nord-Est',
+      'N': 'Nord',
+      'AR': 'Artibonite',
+      'CE': 'Centre',
+      'SD': 'Sud',
+      'SE': 'Sud-Est',
+      'NI': 'Nippes',
+      'GA': 'Grand\'Anse',
+    };
+    return departments[code] || code;
+  };
+
+  if (isLoading) {
+    return (
+      <ScreenContainer variant="background">
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 100 }]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ThemedText variant="secondary" size="base" style={{ marginTop: 16 }}>
+            {t('common.loading') || 'Chargement...'}
+          </ThemedText>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <ScreenContainer variant="background">
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 100 }]}>
+          <ThemedText variant="error" size="base">
+            {t('agent.profile.loadError') || 'Erreur lors du chargement du profil'}
+          </ThemedText>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  const fullName = getFullName(profile);
+  const initials = getInitials(profile.firstNames || [], profile.lastName);
+  const registrationDate = profile.createdAt 
+    ? formatDateSafe(profile.createdAt instanceof Date ? profile.createdAt : profile.createdAt.toDate(), 'dd/MM/yyyy')
+    : '';
 
   const profileInfo = [
     {
       icon: 'user' as const,
       label: t('agent.profile.fullName'),
-      value: fullName,
+      value: fullName || t('common.notProvided') || 'Non renseigné',
     },
     {
       icon: 'envelope' as const,
       label: t('agent.profile.email'),
-      value: mockProfile.email,
+      value: profile.email || t('common.notProvided') || 'Non renseigné',
     },
     {
       icon: 'phone' as const,
       label: t('agent.profile.phone'),
-      value: mockProfile.phone,
+      value: profile.phone || t('common.notProvided') || 'Non renseigné',
     },
-    {
+    ...(profile.department ? [{
       icon: 'map-marker' as const,
-      label: t('agent.profile.location'),
-      value: mockProfile.location,
-    },
+      label: t('agent.profile.department') || 'Département',
+      value: getDepartmentName(profile.department),
+    }] : []),
     {
       icon: 'calendar' as const,
       label: t('agent.profile.registeredOn'),
-      value: mockProfile.registrationDate,
+      value: registrationDate || t('common.notProvided') || 'Non renseigné',
     },
   ];
 
@@ -178,7 +265,8 @@ export default function AgentProfile() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -190,10 +278,10 @@ export default function AgentProfile() {
             </ThemedText>
           </View>
           <ThemedText size="lg" weight="bold" style={styles.fullName}>
-            {fullName}
+            {fullName || t('common.notProvided') || 'Non renseigné'}
           </ThemedText>
           <ThemedText variant="secondary" size="base" style={styles.role}>
-            {mockProfile.role}
+            {getRoleName(profile.role)}
           </ThemedText>
         </ThemedView>
 
@@ -429,7 +517,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,
@@ -541,5 +629,11 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
 });

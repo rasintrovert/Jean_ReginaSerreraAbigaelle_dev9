@@ -62,3 +62,43 @@ export function calculateDueDate(lastMenstruationDate: string | Date): Date {
   }
 }
 
+/**
+ * Formate une date de manière sécurisée, gérant les Date, Timestamp Firestore, et strings
+ */
+export function formatDateSafe(
+  date: string | Date | { toDate: () => Date } | null | undefined,
+  formatStr: string = 'dd/MM/yyyy'
+): string {
+  if (!date) return '';
+  
+  try {
+    let dateObj: Date;
+    
+    // Si c'est un Timestamp Firestore (avec méthode toDate)
+    if (typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
+      dateObj = date.toDate();
+    }
+    // Si c'est déjà une Date
+    else if (date instanceof Date) {
+      dateObj = date;
+    }
+    // Si c'est une string
+    else if (typeof date === 'string') {
+      dateObj = parseISO(date);
+    }
+    // Sinon, essayer de convertir
+    else {
+      dateObj = new Date(date as any);
+    }
+    
+    // Vérifier si la date est valide
+    if (!isValid(dateObj)) {
+      return '';
+    }
+    
+    return format(dateObj, formatStr, { locale: fr });
+  } catch {
+    return '';
+  }
+}
+

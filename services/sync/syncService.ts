@@ -14,6 +14,7 @@ import {
   query, 
   where, 
   orderBy,
+  deleteDoc,
   Timestamp 
 } from 'firebase/firestore';
 import { executeSql, querySql, runSql } from '@/services/database/sqlite';
@@ -35,6 +36,9 @@ interface PendingRecord {
   updated_at: number;
 }
 
+// Verrou pour empêcher les synchronisations concurrentes
+let isSyncing = false;
+
 /**
  * Ajouter un enregistrement à la queue de synchronisation
  */
@@ -51,11 +55,8 @@ export async function addToSyncQueue(
     [id, type, JSON.stringify(data), 'pending', 0, now, now]
   );
 
-  // Tenter une synchronisation immédiate si en ligne
-  const netInfo = await NetInfo.fetch();
-  if (netInfo.isConnected) {
-    syncPendingRecords();
-  }
+  // Ne pas appeler syncPendingRecords ici - laisser le store gérer la synchronisation
+  // Cela évite les appels multiples simultanés qui causent des doublons
 
   return id;
 }
@@ -64,20 +65,33 @@ export async function addToSyncQueue(
  * Synchroniser tous les enregistrements en attente
  */
 export async function syncPendingRecords(): Promise<void> {
+  // Empêcher les synchronisations concurrentes
+  if (isSyncing) {
+    console.log('⚠️ Sync already in progress, skipping...');
+    return;
+  }
+
   const netInfo = await NetInfo.fetch();
   if (!netInfo.isConnected) {
     console.log('No internet connection. Sync skipped.');
     return;
   }
 
-  // Le store se mettra à jour via syncAll() appelé depuis le store
+  // Activer le verrou
+  isSyncing = true;
   console.log('Starting sync...');
 
   try {
-    // Récupérer tous les enregistrements en attente
+    // S'assurer que la base de données est initialisée
+    const { initDatabase } = await import('@/services/database/sqlite');
+    await initDatabase();
+    
+    // Récupérer uniquement les enregistrements en attente (pas ceux en cours de sync)
+    // Utiliser une transaction pour éviter les race conditions
     const rows = await querySql(
       `SELECT * FROM pending_records 
-       WHERE status = 'pending' OR (status = 'failed' AND retry_count < 3)
+       WHERE (status = 'pending' OR (status = 'failed' AND retry_count < 3))
+       AND status != 'syncing'
        ORDER BY created_at ASC
        LIMIT 10`
     );
@@ -109,6 +123,9 @@ export async function syncPendingRecords(): Promise<void> {
   } catch (error) {
     console.error('Sync error:', error);
     throw error; // Laisser le store gérer l'erreur
+  } finally {
+    // Libérer le verrou dans tous les cas
+    isSyncing = false;
   }
 }
 
@@ -116,13 +133,42 @@ export async function syncPendingRecords(): Promise<void> {
  * Synchroniser un seul enregistrement
  */
 async function syncSingleRecord(record: PendingRecord): Promise<void> {
-  // Marquer comme "en cours de synchronisation"
+  // Vérifier que l'enregistrement est toujours en attente avant de le synchroniser
+  // Cela évite de synchroniser deux fois le même enregistrement
+  const checkRow = await querySql(
+    `SELECT status FROM pending_records WHERE id = ?`,
+    [record.id]
+  );
+
+  if (checkRow.length === 0) {
+    console.log(`⚠️ Record ${record.id} already deleted, skipping...`);
+    return;
+  }
+
+  if (checkRow[0].status === 'syncing') {
+    console.log(`⚠️ Record ${record.id} already syncing, skipping...`);
+    return;
+  }
+
+  // Marquer comme "en cours de synchronisation" de manière atomique
+  // La condition WHERE status != 'syncing' empêche la mise à jour si déjà en cours
   await runSql(
     `UPDATE pending_records 
      SET status = 'syncing', updated_at = ?
-     WHERE id = ?`,
+     WHERE id = ? AND status != 'syncing'`,
     [Date.now(), record.id]
   );
+
+  // Vérifier à nouveau que le statut a bien été mis à jour
+  const verifyRow = await querySql(
+    `SELECT status FROM pending_records WHERE id = ?`,
+    [record.id]
+  );
+
+  if (verifyRow.length === 0 || verifyRow[0].status !== 'syncing') {
+    console.log(`⚠️ Record ${record.id} was already being synced by another process, skipping...`);
+    return;
+  }
 
   try {
     // Déterminer la collection Firestore
@@ -132,6 +178,7 @@ async function syncSingleRecord(record: PendingRecord): Promise<void> {
     const docRef = await addDoc(collection(firestore, collectionName), {
       ...record.data,
       synced: true,
+      validationStatus: record.data.validationStatus || 'pending', // Statut de validation admin
       createdAt: Timestamp.fromMillis(record.created_at),
       updatedAt: Timestamp.now(),
     });
@@ -178,6 +225,10 @@ export async function pullFromFirestore(
   }
 
   try {
+    // S'assurer que la base de données est initialisée
+    const { initDatabase } = await import('@/services/database/sqlite');
+    await initDatabase();
+    
     const collectionName = type === 'pregnancy' ? 'pregnancies' : 'births';
     const q = query(
       collection(firestore, collectionName),
@@ -187,20 +238,36 @@ export async function pullFromFirestore(
     const querySnapshot = await getDocs(q);
     const cacheTable = type === 'pregnancy' ? 'synced_pregnancies' : 'synced_births';
 
+    // Récupérer tous les IDs existants dans Firestore
+    const firestoreIds = new Set<string>();
+    
     for (const docSnapshot of querySnapshot.docs) {
       const data = docSnapshot.data();
+      const docId = docSnapshot.id;
+      firestoreIds.add(docId);
       
       // Sauvegarder dans le cache local
       await runSql(
         `INSERT OR REPLACE INTO ${cacheTable} (id, data, synced_at, updated_at)
          VALUES (?, ?, ?, ?)`,
         [
-          docSnapshot.id,
+          docId,
           JSON.stringify(data),
           Date.now(),
           data.updatedAt?.toMillis() || Date.now(),
         ]
       );
+    }
+
+    // Supprimer de SQLite les enregistrements qui n'existent plus dans Firestore
+    const existingRows = await querySql(`SELECT id FROM ${cacheTable}`);
+    const existingIds = new Set(existingRows.map((row: any) => row.id));
+    
+    for (const existingId of existingIds) {
+      if (!firestoreIds.has(existingId)) {
+        await runSql(`DELETE FROM ${cacheTable} WHERE id = ?`, [existingId]);
+        console.log(`🗑️ Removed ${type} ${existingId} from local cache (not in Firestore)`);
+      }
     }
 
     // Mettre à jour le timestamp de dernière sync
@@ -221,23 +288,32 @@ export async function pullFromFirestore(
  * Obtenir le nombre d'enregistrements en attente
  */
 export async function getPendingCount(): Promise<{ pregnancies: number; births: number }> {
-  const rows = await querySql(
-    `SELECT type, COUNT(*) as count 
-     FROM pending_records 
-     WHERE status = 'pending' OR status = 'failed'
-     GROUP BY type`
-  );
+  try {
+    // S'assurer que la base de données est initialisée
+    const { initDatabase } = await import('@/services/database/sqlite');
+    await initDatabase();
+    
+    const rows = await querySql(
+      `SELECT type, COUNT(*) as count 
+       FROM pending_records 
+       WHERE status = 'pending' OR status = 'failed'
+       GROUP BY type`
+    );
 
-  const counts = { pregnancies: 0, births: 0 };
-  rows.forEach((row: any) => {
-    if (row.type === 'pregnancy') {
-      counts.pregnancies = row.count;
-    } else {
-      counts.births = row.count;
-    }
-  });
+    const counts = { pregnancies: 0, births: 0 };
+    rows.forEach((row: any) => {
+      if (row.type === 'pregnancy') {
+        counts.pregnancies = row.count;
+      } else {
+        counts.births = row.count;
+      }
+    });
 
-  return counts;
+    return counts;
+  } catch (error) {
+    console.error('Error getting pending count:', error);
+    return { pregnancies: 0, births: 0 };
+  }
 }
 
 /**
@@ -277,9 +353,12 @@ export async function loadPregnanciesFromSQLite(): Promise<any[]> {
     syncedRows.forEach((row: any) => {
       try {
         const data = JSON.parse(row.data);
+        // Utiliser l'ID Firestore si disponible, sinon l'ID local
+        const uniqueId = data.firestoreId || row.id;
         pregnancies.push({
           ...data,
-          id: row.id,
+          id: uniqueId,
+          firestoreId: data.firestoreId, // Garder le firestoreId pour la déduplication
           status: 'synced' as const,
           createdAt: data.createdAt || new Date(row.synced_at).toISOString(),
         });
@@ -290,25 +369,84 @@ export async function loadPregnanciesFromSQLite(): Promise<any[]> {
 
     // Dédupliquer (priorité aux synced, et exclure les pending qui sont déjà synced)
     const uniquePregnancies = new Map<string, any>();
-    const syncedIds = new Set(syncedRows.map((row: any) => row.id));
+    const syncedIds = new Set(syncedRows.map((row: any) => {
+      try {
+        const data = JSON.parse(row.data);
+        // Utiliser l'ID Firestore si disponible, sinon l'ID local
+        return data.firestoreId || row.id;
+      } catch {
+        return row.id;
+      }
+    }));
     
     pregnancies.forEach((p) => {
+      // Identifier la clé unique - utiliser firestoreId si disponible
+      const uniqueKey = p.firestoreId || p.id;
+      
       // Si c'est un pending mais qu'il existe déjà en synced, on l'ignore
-      if (p.status === 'pending' && syncedIds.has(p.id)) {
+      if (p.status === 'pending' && syncedIds.has(uniqueKey)) {
         return;
       }
       
-      const key = p.id;
       // Si on a déjà cette clé, on garde seulement si c'est synced
-      if (!uniquePregnancies.has(key) || p.status === 'synced') {
-        uniquePregnancies.set(key, p);
+      if (!uniquePregnancies.has(uniqueKey) || p.status === 'synced') {
+        uniquePregnancies.set(uniqueKey, p);
       }
     });
 
+    console.log(`📊 Loaded ${uniquePregnancies.size} unique pregnancies (${pendingRows.length} pending, ${syncedRows.length} synced)`);
     return Array.from(uniquePregnancies.values());
   } catch (error) {
     console.error('Error loading pregnancies from SQLite:', error);
     return [];
+  }
+}
+
+/**
+ * Supprimer un enregistrement (pregnancy ou birth)
+ * Supprime de SQLite et Firestore si synchronisé
+ */
+export async function deleteRecord(
+  type: RecordType,
+  id: string,
+  firestoreId?: string
+): Promise<void> {
+  try {
+    // S'assurer que la base de données est initialisée
+    const { initDatabase } = await import('@/services/database/sqlite');
+    await initDatabase();
+    
+    // 1. Supprimer de pending_records si présent
+    await runSql(`DELETE FROM pending_records WHERE id = ?`, [id]);
+    
+    // 2. Supprimer de la table de cache si présent
+    const cacheTable = type === 'pregnancy' ? 'synced_pregnancies' : 'synced_births';
+    if (firestoreId) {
+      await runSql(`DELETE FROM ${cacheTable} WHERE id = ?`, [firestoreId]);
+    } else {
+      // Si pas de firestoreId, essayer avec l'ID local
+      await runSql(`DELETE FROM ${cacheTable} WHERE id = ?`, [id]);
+    }
+    
+    // 3. Supprimer de Firestore si synchronisé et en ligne
+    if (firestoreId) {
+      const netInfo = await NetInfo.fetch();
+      if (netInfo.isConnected) {
+        try {
+          const collectionName = type === 'pregnancy' ? 'pregnancies' : 'births';
+          await deleteDoc(doc(firestore, collectionName, firestoreId));
+          console.log(`✅ Deleted ${type} ${firestoreId} from Firestore`);
+        } catch (error) {
+          console.error(`❌ Error deleting from Firestore:`, error);
+          // On continue même si la suppression Firestore échoue
+        }
+      }
+    }
+    
+    console.log(`✅ Deleted ${type} ${id} from local database`);
+  } catch (error) {
+    console.error(`❌ Error deleting ${type} record:`, error);
+    throw error;
   }
 }
 
@@ -350,9 +488,12 @@ export async function loadBirthsFromSQLite(): Promise<any[]> {
     syncedRows.forEach((row: any) => {
       try {
         const data = JSON.parse(row.data);
+        // Utiliser l'ID Firestore si disponible, sinon l'ID local
+        const uniqueId = data.firestoreId || row.id;
         births.push({
           ...data,
-          id: row.id,
+          id: uniqueId,
+          firestoreId: data.firestoreId, // Garder le firestoreId pour la déduplication
           synced: true,
           certificateStatus: data.certificateStatus || 'pending',
           createdAt: data.createdAt || new Date(row.synced_at).toISOString(),
@@ -364,21 +505,32 @@ export async function loadBirthsFromSQLite(): Promise<any[]> {
 
     // Dédupliquer (priorité aux synced, et exclure les pending qui sont déjà synced)
     const uniqueBirths = new Map<string, any>();
-    const syncedIds = new Set(syncedRows.map((row: any) => row.id));
+    const syncedIds = new Set(syncedRows.map((row: any) => {
+      try {
+        const data = JSON.parse(row.data);
+        // Utiliser l'ID Firestore si disponible, sinon l'ID local
+        return data.firestoreId || row.id;
+      } catch {
+        return row.id;
+      }
+    }));
     
     births.forEach((b) => {
+      // Identifier la clé unique - utiliser firestoreId si disponible
+      const uniqueKey = b.firestoreId || b.id;
+      
       // Si c'est un pending mais qu'il existe déjà en synced, on l'ignore
-      if (!b.synced && syncedIds.has(b.id)) {
+      if (!b.synced && syncedIds.has(uniqueKey)) {
         return;
       }
       
-      const key = b.id;
       // Si on a déjà cette clé, on garde seulement si c'est synced
-      if (!uniqueBirths.has(key) || b.synced) {
-        uniqueBirths.set(key, b);
+      if (!uniqueBirths.has(uniqueKey) || b.synced) {
+        uniqueBirths.set(uniqueKey, b);
       }
     });
 
+    console.log(`📊 Loaded ${uniqueBirths.size} unique births (${pendingRows.length} pending, ${syncedRows.length} synced)`);
     return Array.from(uniqueBirths.values());
   } catch (error) {
     console.error('Error loading births from SQLite:', error);

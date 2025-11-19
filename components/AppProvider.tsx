@@ -171,6 +171,24 @@ export function AppProvider({ children }: AppProviderProps) {
         await loadPregnancies();
         await loadBirths();
         console.log('✅ Data loaded from SQLite');
+        
+        // Synchroniser avec Firestore pour mettre à jour les données
+        // Cela supprimera aussi les enregistrements qui n'existent plus dans Firestore
+        const { useSyncStore } = await import('@/store/syncStore');
+        const { isOnline } = useSyncStore.getState();
+        if (isOnline) {
+          try {
+            await useSyncStore.getState().syncAll();
+            console.log('✅ Data synced with Firestore');
+            
+            // Recharger les données après la synchronisation
+            await loadPregnancies();
+            await loadBirths();
+            console.log('✅ Data reloaded after sync');
+          } catch (error) {
+            console.error('❌ Error syncing data:', error);
+          }
+        }
       } catch (error) {
         console.error('❌ Error loading data:', error);
       }

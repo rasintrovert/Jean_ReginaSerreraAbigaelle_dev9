@@ -25,32 +25,9 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const { appTheme, setAppTheme } = useThemeStore();
 
-  // États pour les notifications
-  const [enableNotifications, setEnableNotifications] = useState(true);
-  const [alertSound, setAlertSound] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-
   // États pour la synchronisation
   const [autoSync, setAutoSync] = useState(true);
   const [wifiOnly, setWifiOnly] = useState(false);
-
-  const handleClearCache = () => {
-    Alert.alert(
-      t('agent.settings.clearCache'),
-      t('agent.settings.clearCacheConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' as const },
-        {
-          text: t('agent.settings.clearCache'),
-          style: 'destructive' as const,
-          onPress: () => {
-            // TODO: Implémenter l'effacement du cache
-            Alert.alert(t('common.success'), t('agent.settings.clearCacheSuccess'));
-          },
-        },
-      ]
-    );
-  };
 
   const handleHelpPress = () => {
     router.push('/(dashboard)/agent/help' as any);
@@ -95,7 +72,8 @@ export default function SettingsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -156,64 +134,6 @@ export default function SettingsScreen() {
                 {t('agent.settings.languageFrench')}
               </ThemedText>
             </PressableButton>
-          </View>
-        </ThemedCard>
-
-        {/* Section Notifications */}
-        <ThemedCard style={styles.sectionCard}>
-          <ThemedView variant="transparent" style={styles.sectionHeader}>
-            <FontAwesome
-              name="bell"
-              size={20}
-              color={theme.colors.primary}
-              style={styles.sectionIcon}
-            />
-            <ThemedView variant="transparent" style={styles.sectionHeaderText}>
-              <ThemedText size="lg" weight="semibold" style={styles.sectionTitle}>
-                {t('agent.settings.notificationsTitle')}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.sectionSubtitle}>
-                {t('agent.settings.notificationsSubtitle')}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-
-          <View style={styles.switchList}>
-            <View style={styles.switchItem}>
-              <ThemedText size="base" weight="medium" style={styles.switchLabel}>
-                {t('agent.settings.enableNotifications')}
-              </ThemedText>
-              <Switch
-                value={enableNotifications}
-                onValueChange={setEnableNotifications}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            <View style={styles.switchItem}>
-              <ThemedText size="base" weight="medium" style={styles.switchLabel}>
-                {t('agent.settings.alertSound')}
-              </ThemedText>
-              <Switch
-                value={alertSound}
-                onValueChange={setAlertSound}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            <View style={styles.switchItem}>
-              <ThemedText size="base" weight="medium" style={styles.switchLabel}>
-                {t('agent.settings.emailNotifications')}
-              </ThemedText>
-              <Switch
-                value={emailNotifications}
-                onValueChange={setEmailNotifications}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor="#fff"
-              />
-            </View>
           </View>
         </ThemedCard>
 
@@ -339,25 +259,8 @@ export default function SettingsScreen() {
           </View>
         </ThemedCard>
 
-        {/* Section À propos */}
+        {/* Section Aide */}
         <ThemedCard style={styles.sectionCard}>
-          <ThemedView variant="transparent" style={styles.sectionHeader}>
-            <FontAwesome
-              name="info-circle"
-              size={20}
-              color={theme.colors.primary}
-              style={styles.sectionIcon}
-            />
-            <ThemedView variant="transparent" style={styles.sectionHeaderText}>
-              <ThemedText size="lg" weight="semibold" style={styles.sectionTitle}>
-                {t('agent.settings.aboutTitle')}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.sectionSubtitle}>
-                {t('agent.settings.aboutSubtitle')}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-
           <PressableButton
             variant="outline"
             size="md"
@@ -366,49 +269,9 @@ export default function SettingsScreen() {
             accessibilityLabel={t('agent.settings.help')}
             style={styles.helpButton}
           >
-            <FontAwesome name="question-circle" size={16} color={theme.colors.primary} />
+            <FontAwesome name="info-circle" size={16} color={theme.colors.primary} />
             <ThemedText size="base" weight="semibold" style={{ color: theme.colors.primary, marginLeft: 8 }}>
               {t('agent.settings.help')}
-            </ThemedText>
-          </PressableButton>
-
-          <ThemedView variant="transparent" style={styles.versionContainer}>
-            <ThemedText variant="secondary" size="sm" style={styles.versionText}>
-              {t('agent.settings.version')}
-            </ThemedText>
-          </ThemedView>
-        </ThemedCard>
-
-        {/* Section Cache */}
-        <ThemedCard style={styles.sectionCard}>
-          <ThemedView variant="transparent" style={styles.sectionHeader}>
-            <FontAwesome
-              name="trash"
-              size={20}
-              color={theme.colors.error}
-              style={styles.sectionIcon}
-            />
-            <ThemedView variant="transparent" style={styles.sectionHeaderText}>
-              <ThemedText size="lg" weight="semibold" style={styles.sectionTitle}>
-                {t('agent.settings.cacheTitle')}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.sectionSubtitle}>
-                {t('agent.settings.cacheSubtitle')}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-
-          <PressableButton
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={handleClearCache}
-            accessibilityLabel={t('agent.settings.clearCache')}
-            style={{ backgroundColor: theme.colors.error }}
-          >
-            <FontAwesome name="trash" size={16} color="#fff" />
-            <ThemedText size="base" weight="semibold" style={{ color: '#fff', marginLeft: 8 }}>
-              {t('agent.settings.clearCache')}
             </ThemedText>
           </PressableButton>
         </ThemedCard>
@@ -439,7 +302,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,

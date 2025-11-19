@@ -13,28 +13,23 @@ import { useLanguageStore } from '@/store/languageStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { 
+  getAllUsers, 
+  createUser, 
+  updateUser, 
+  toggleUserStatus, 
+  resetUserPassword,
+  getUserStatistics,
+  AdminUser,
+  CreateUserData,
+  UpdateUserData
+} from '@/services/admin/userService';
 
 type UserRole = 'agent' | 'hospital' | 'admin';
 type UserStatus = 'active' | 'inactive';
-
-interface User {
-  id: string;
-  lastName: string;
-  firstNames: string[];
-  email: string; // Utilisé pour l'authentification Firebase
-  phone?: string;
-  role: UserRole;
-  status: UserStatus;
-  department?: string;
-  institutionName?: string;
-  createdAt: string;
-  lastActivity?: string;
-  recordsCount?: number;
-  validationsCount?: number;
-}
 
 export default function AdminUsersScreen() {
   const router = useRouter();
@@ -54,6 +49,10 @@ export default function AdminUsersScreen() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [showDepartmentPickerModal, setShowDepartmentPickerModal] = useState(false);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [password, setPassword] = useState(''); // Mot de passe temporaire pour la création
   const [formData, setFormData] = useState({
     lastName: '',
     firstNames: [''],
@@ -64,56 +63,50 @@ export default function AdminUsersScreen() {
     institutionName: '',
   });
 
-  // Helper function pour reconstruire le nom complet
-  const getFullName = (user: User): string => {
-    const firstNamesStr = user.firstNames.filter(fn => fn.trim()).join(' ');
-    return firstNamesStr ? `${firstNamesStr} ${user.lastName}` : user.lastName;
+  // Charger les utilisateurs au montage
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    try {
+      const allUsers = await getAllUsers();
+      
+      // Charger les statistiques pour chaque utilisateur
+      const usersWithStats = await Promise.all(
+        allUsers.map(async (user) => {
+          const stats = await getUserStatistics(user.id);
+          return {
+            ...user,
+            recordsCount: stats.recordsCount,
+            validationsCount: stats.validationsCount,
+          };
+        })
+      );
+
+      setUsers(usersWithStats);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      Alert.alert(
+        t('common.error'),
+        t('admin.users.loadError') || 'Erreur lors du chargement des utilisateurs'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Données simulées
-  const mockUsers: User[] = [
-    {
-      id: '1',
-      lastName: 'Paul',
-      firstNames: ['Jean'],
-      email: 'jean.paul@example.com',
-      phone: '+509 1234-5678',
-      role: 'agent',
-      status: 'active',
-      department: 'Ouest',
-      createdAt: '2024-01-15',
-      lastActivity: '2025-01-28',
-      recordsCount: 45,
-    },
-    {
-      id: '2',
-      lastName: 'Général',
-      firstNames: ['Hôpital'],
-      email: 'contact@hopitalgeneral.ht',
-      phone: '+509 2345-6789',
-      role: 'hospital',
-      status: 'active',
-      institutionName: 'Hôpital Général de Port-au-Prince',
-      createdAt: '2024-02-10',
-      lastActivity: '2025-01-28',
-      recordsCount: 128,
-    },
-    {
-      id: '4',
-      lastName: 'Laurent',
-      firstNames: ['Pierre'],
-      email: 'pierre.laurent@example.com',
-      phone: '+509 3456-7890',
-      role: 'agent',
-      status: 'inactive',
-      department: 'Artibonite',
-      createdAt: '2024-04-05',
-      lastActivity: '2025-01-20',
-      recordsCount: 12,
-    },
-  ];
+  // Helper function pour reconstruire le nom complet
+  const getFullName = (user: AdminUser): string => {
+    const firstNames = user.firstNames || [];
+    const firstNamesStr = firstNames.filter(fn => fn && fn.trim()).join(' ');
+    return firstNamesStr ? `${firstNamesStr} ${user.lastName || ''}` : (user.lastName || '');
+  };
 
-  const filteredUsers = mockUsers.filter(user => {
+  const filteredUsers = (users || []).filter(user => {
+    if (!user) return false;
+    
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
     // Comparer avec le code du département si l'utilisateur a un département
@@ -130,20 +123,20 @@ export default function AdminUsersScreen() {
     const fullName = getFullName(user);
     const matchesSearch = 
       fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (user.phone && user.phone.includes(searchQuery));
     
     return matchesRole && matchesStatus && matchesDepartment && matchesSearch;
   });
 
   // Statistiques globales
-  const totalUsers = mockUsers.length;
-  const activeUsers = mockUsers.filter(u => u.status === 'active').length;
-  const inactiveUsers = mockUsers.filter(u => u.status === 'inactive').length;
+  const totalUsers = (users || []).length;
+  const activeUsers = (users || []).filter(u => u && u.status === 'active').length;
+  const inactiveUsers = (users || []).filter(u => u && u.status === 'inactive').length;
   const usersByRole = {
-    agent: mockUsers.filter(u => u.role === 'agent').length,
-    hospital: mockUsers.filter(u => u.role === 'hospital').length,
-    admin: mockUsers.filter(u => u.role === 'admin').length,
+    agent: (users || []).filter(u => u && u.role === 'agent').length,
+    hospital: (users || []).filter(u => u && u.role === 'hospital').length,
+    admin: (users || []).filter(u => u && u.role === 'admin').length,
   };
 
   // Liste des départements - Utiliser tous les départements haïtiens
@@ -174,10 +167,11 @@ export default function AdminUsersScreen() {
       department: '',
       institutionName: '',
     });
+    setPassword('');
     setShowCreateModal(true);
   };
 
-  const handleEdit = (user: User) => {
+  const handleEdit = (user: AdminUser) => {
     setSelectedUser(user);
     setFormData({
       lastName: user.lastName,
@@ -208,7 +202,7 @@ export default function AdminUsersScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const hasValidFirstName = formData.firstNames.some(fn => fn.trim().length >= 2);
     // Email est requis pour l'authentification
     if (!formData.lastName || !hasValidFirstName || !formData.email) {
@@ -216,21 +210,66 @@ export default function AdminUsersScreen() {
       return;
     }
 
-    // TODO: Appel API pour créer/modifier
-    if (showCreateModal) {
-      console.log('Créer utilisateur:', formData);
-      Alert.alert(t('common.success'), t('admin.users.created') || 'Utilisateur créé avec succès');
-    } else {
-      console.log('Modifier utilisateur:', selectedUser?.id, formData);
-      Alert.alert(t('common.success'), t('admin.users.updated') || 'Utilisateur modifié avec succès');
+    // Pour la création, un mot de passe est requis
+    if (showCreateModal && !password) {
+      Alert.alert(t('common.error'), t('admin.users.passwordRequired') || 'Un mot de passe est requis pour créer un utilisateur');
+      return;
     }
-    
-    setShowCreateModal(false);
-    setShowEditModal(false);
-    setSelectedUser(null);
+
+    setIsSaving(true);
+    try {
+      if (showCreateModal) {
+        // Créer un nouvel utilisateur
+        const createData: CreateUserData = {
+          lastName: formData.lastName,
+          firstNames: formData.firstNames.filter(fn => fn.trim()),
+          email: formData.email,
+          phone: formData.phone || undefined,
+          role: formData.role,
+          department: formData.department || undefined,
+          institutionName: formData.institutionName || undefined,
+          password: password,
+        };
+
+        await createUser(createData);
+        Alert.alert(t('common.success'), t('admin.users.created') || 'Utilisateur créé avec succès');
+      } else {
+        // Modifier un utilisateur existant
+        if (!selectedUser) return;
+
+        const updateData: UpdateUserData = {
+          lastName: formData.lastName,
+          firstNames: formData.firstNames.filter(fn => fn.trim()),
+          email: formData.email,
+          phone: formData.phone || undefined,
+          role: formData.role,
+          department: formData.department || undefined,
+          institutionName: formData.institutionName || undefined,
+        };
+
+        await updateUser(selectedUser.id, updateData);
+        Alert.alert(t('common.success'), t('admin.users.updated') || 'Utilisateur modifié avec succès');
+      }
+
+      // Recharger la liste des utilisateurs
+      await loadUsers();
+      
+      setShowCreateModal(false);
+      setShowEditModal(false);
+      setSelectedUser(null);
+      setPassword('');
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      Alert.alert(
+        t('common.error'),
+        error.message || (t('admin.users.saveError') || 'Erreur lors de la sauvegarde')
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleToggleStatus = (user: User) => {
+  const handleToggleStatus = async (user: AdminUser) => {
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
     Alert.alert(
       newStatus === 'active' 
@@ -246,17 +285,25 @@ export default function AdminUsersScreen() {
         },
         {
           text: t('common.confirm'),
-          onPress: () => {
-            // TODO: Appel API
-            console.log('Changer statut:', user.id, newStatus);
-            Alert.alert(t('common.success'), t('admin.users.statusChanged') || 'Statut modifié avec succès');
+          onPress: async () => {
+            try {
+              await toggleUserStatus(user.id, newStatus);
+              Alert.alert(t('common.success'), t('admin.users.statusChanged') || 'Statut modifié avec succès');
+              await loadUsers();
+            } catch (error: any) {
+              console.error('Error toggling status:', error);
+              Alert.alert(
+                t('common.error'),
+                error.message || (t('admin.users.statusError') || 'Erreur lors de la modification du statut')
+              );
+            }
           },
         },
       ]
     );
   };
 
-  const handleResetPassword = (user: User) => {
+  const handleResetPassword = async (user: AdminUser) => {
     Alert.alert(
       t('admin.users.resetPasswordTitle') || 'Réinitialiser le mot de passe',
       t('admin.users.resetPasswordMessage') || `Voulez-vous réinitialiser le mot de passe de ${getFullName(user)} ?`,
@@ -267,23 +314,32 @@ export default function AdminUsersScreen() {
         },
         {
           text: t('common.confirm'),
-          onPress: () => {
-            // TODO: Appel API
-            console.log('Réinitialiser mot de passe:', user.id);
-            Alert.alert(t('common.success'), t('admin.users.passwordReset') || 'Un email de réinitialisation a été envoyé');
+          onPress: async () => {
+            try {
+              await resetUserPassword(user.email);
+              Alert.alert(t('common.success'), t('admin.users.passwordReset') || 'Un email de réinitialisation a été envoyé');
+            } catch (error: any) {
+              console.error('Error resetting password:', error);
+              Alert.alert(
+                t('common.error'),
+                error.message || (t('admin.users.passwordResetError') || 'Erreur lors de la réinitialisation du mot de passe')
+              );
+            }
           },
         },
       ]
     );
   };
 
-  const handleViewActivity = (user: User) => {
-    // TODO: Naviguer vers la page d'activité
+  const handleViewActivity = (user: AdminUser) => {
+    const lastActivityDate = user.lastActivity 
+      ? new Date(user.lastActivity).toLocaleDateString('fr-FR')
+      : 'N/A';
     Alert.alert(
       t('admin.users.activity') || 'Activité',
-      `${t('admin.users.recordsCount')}: ${user.recordsCount || 0}\n` +
-      `${t('admin.users.validationsCount')}: ${user.validationsCount || 0}\n` +
-      `${t('admin.users.lastActivity')}: ${user.lastActivity || 'N/A'}`
+      `${t('admin.users.recordsCount') || 'Enregistrements'}: ${user.recordsCount || 0}\n` +
+      `${t('admin.users.validationsCount') || 'Validations'}: ${user.validationsCount || 0}\n` +
+      `${t('admin.users.lastActivity') || 'Dernière activité'}: ${lastActivityDate}`
     );
   };
 
@@ -317,109 +373,152 @@ export default function AdminUsersScreen() {
     return t(`roles.${role}`) || role;
   };
 
-  const renderUser = ({ item }: { item: User }) => (
-    <ThemedCard style={styles.userCard}>
-      <ThemedView variant="transparent" style={styles.userHeader}>
-        <ThemedView 
-          variant="transparent" 
-          style={StyleSheet.flatten([
-            styles.userIconContainer,
-            { backgroundColor: getRoleColor(item.role) + '20' }
-          ])}
-        >
-          <FontAwesome 
-            name={getRoleIcon(item.role)} 
-            size={isTablet ? 28 : 24} 
-            color={getRoleColor(item.role)} 
-          />
-        </ThemedView>
-        <ThemedView variant="transparent" style={styles.userInfo}>
-          <ThemedText size="base" weight="semibold">
-            {getFullName(item)}
-          </ThemedText>
-          <ThemedView variant="transparent" style={styles.userMeta}>
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([
-                styles.roleBadge,
-                { backgroundColor: getRoleColor(item.role) + '20' }
-              ])}
-            >
-              <ThemedText 
-                size="xs" 
-                weight="medium"
-                style={{ color: getRoleColor(item.role) }}
+  const renderUser = ({ item }: { item: AdminUser }) => {
+    // Pour les hôpitaux, le titre principal est l'institution
+    const displayTitle = item.role === 'hospital' && item.institutionName 
+      ? item.institutionName 
+      : getFullName(item);
+    
+    return (
+      <ThemedCard style={styles.userCard}>
+        <ThemedView variant="transparent" style={styles.userHeader}>
+          <ThemedView 
+            variant="transparent" 
+            style={StyleSheet.flatten([
+              styles.userIconContainer,
+              { backgroundColor: getRoleColor(item.role) + '20' }
+            ])}
+          >
+            <FontAwesome 
+              name={getRoleIcon(item.role)} 
+              size={isTablet ? 28 : 24} 
+              color={getRoleColor(item.role)} 
+            />
+          </ThemedView>
+          <ThemedView variant="transparent" style={styles.userInfo}>
+            <ThemedText size="base" weight="semibold">
+              {displayTitle}
+            </ThemedText>
+            <ThemedView variant="transparent" style={styles.userMeta}>
+              <ThemedView 
+                variant="transparent" 
+                style={StyleSheet.flatten([
+                  styles.roleBadge,
+                  { backgroundColor: getRoleColor(item.role) + '20' }
+                ])}
               >
-                {getRoleLabel(item.role)}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([
-                styles.statusBadge,
-                { 
-                  backgroundColor: item.status === 'active' 
-                    ? theme.colors.success + '20' 
-                    : theme.colors.error + '20' 
-                }
-              ])}
-            >
-              <ThemedText 
-                size="xs" 
-                weight="medium"
-                style={{ 
-                  color: item.status === 'active' 
-                    ? theme.colors.success 
-                    : theme.colors.error 
-                }}
+                <ThemedText 
+                  size="xs" 
+                  weight="medium"
+                  style={{ color: getRoleColor(item.role) }}
+                >
+                  {getRoleLabel(item.role)}
+                </ThemedText>
+              </ThemedView>
+              {item.department && item.department.trim() && (
+                <ThemedView 
+                  variant="transparent" 
+                  style={StyleSheet.flatten([
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.secondary + '20' }
+                  ])}
+                >
+                  <FontAwesome name="map-marker" size={11} color={theme.colors.secondary} />
+                  <ThemedText 
+                    size="xs" 
+                    weight="semibold"
+                    style={{ color: theme.colors.secondary }}
+                  >
+                    {(() => {
+                      // Si c'est déjà un code (2-3 lettres), utiliser directement
+                      // Sinon, chercher si c'est un nom
+                      const isCode = item.department && item.department.length <= 3 && /^[A-Z]+$/.test(item.department);
+                      if (isCode) {
+                        return getDepartmentName(item.department);
+                      }
+                      const deptCode = HAITIAN_DEPARTMENTS.find(
+                        d => d.name === item.department || d.nameKr === item.department
+                      )?.code || item.department;
+                      return getDepartmentName(deptCode);
+                    })()}
+                  </ThemedText>
+                </ThemedView>
+              )}
+              <ThemedView 
+                variant="transparent" 
+                style={StyleSheet.flatten([
+                  styles.statusBadge,
+                  { 
+                    backgroundColor: item.status === 'active' 
+                      ? theme.colors.success + '20' 
+                      : theme.colors.error + '20' 
+                  }
+                ])}
               >
-                {item.status === 'active' 
-                  ? t('admin.users.active') 
-                  : t('admin.users.inactive')}
-              </ThemedText>
+                <ThemedText 
+                  size="xs" 
+                  weight="medium"
+                  style={{ 
+                    color: item.status === 'active' 
+                      ? theme.colors.success 
+                      : theme.colors.error 
+                  }}
+                >
+                  {item.status === 'active' 
+                    ? t('admin.users.active') 
+                    : t('admin.users.inactive')}
+                </ThemedText>
+              </ThemedView>
             </ThemedView>
           </ThemedView>
         </ThemedView>
-      </ThemedView>
 
-      <ThemedView variant="transparent" style={styles.userDetails}>
-        <ThemedView variant="transparent" style={styles.userDetailRow}>
-          <FontAwesome name="envelope" size={14} color={theme.colors.textSecondary} />
-          <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
-            {item.email}
-          </ThemedText>
+        <ThemedView variant="transparent" style={styles.userDetails}>
+          <ThemedView variant="transparent" style={styles.userDetailRow}>
+            <FontAwesome name="envelope" size={14} color={theme.colors.textSecondary} />
+            <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
+              {item.email}
+            </ThemedText>
+          </ThemedView>
+          {item.phone && (
+            <ThemedView variant="transparent" style={styles.userDetailRow}>
+              <FontAwesome name="phone" size={14} color={theme.colors.textSecondary} />
+              <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
+                {item.phone}
+              </ThemedText>
+            </ThemedView>
+          )}
+          {/* Département pour tous les rôles */}
+          {item.department && item.department.trim() && (
+            <ThemedView variant="transparent" style={styles.userDetailRow}>
+              <FontAwesome name="map-marker" size={14} color={theme.colors.textSecondary} />
+              <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
+                {(() => {
+                  // Si c'est déjà un code (2-3 lettres), utiliser directement
+                  // Sinon, chercher si c'est un nom
+                  const isCode = item.department && item.department.length <= 3 && /^[A-Z]+$/.test(item.department);
+                  if (isCode) {
+                    return getDepartmentName(item.department);
+                  }
+                  const deptCode = HAITIAN_DEPARTMENTS.find(
+                    d => d.name === item.department || d.nameKr === item.department
+                  )?.code || item.department;
+                  return getDepartmentName(deptCode);
+                })()}
+              </ThemedText>
+            </ThemedView>
+          )}
+          {/* Nom de l'institution pour les hôpitaux (déjà dans le titre, donc on ne le répète pas) */}
+          {/* Directeur pour les hôpitaux - affiché en bas */}
+          {item.role === 'hospital' && (
+            <ThemedView variant="transparent" style={styles.userDetailRow}>
+              <FontAwesome name="user" size={14} color={theme.colors.textSecondary} />
+              <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
+                {t('admin.users.director') || 'Directeur'}: {getFullName(item)}
+              </ThemedText>
+            </ThemedView>
+          )}
         </ThemedView>
-        {item.phone && (
-          <ThemedView variant="transparent" style={styles.userDetailRow}>
-            <FontAwesome name="phone" size={14} color={theme.colors.textSecondary} />
-            <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
-              {item.phone}
-            </ThemedText>
-          </ThemedView>
-        )}
-        {item.department && (
-          <ThemedView variant="transparent" style={styles.userDetailRow}>
-            <FontAwesome name="map-marker" size={14} color={theme.colors.textSecondary} />
-            <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
-              {(() => {
-                // Trouver le code du département si c'est un nom
-                const deptCode = HAITIAN_DEPARTMENTS.find(
-                  d => d.name === item.department || d.nameKr === item.department
-                )?.code || item.department;
-                return getDepartmentName(deptCode);
-              })()}
-            </ThemedText>
-          </ThemedView>
-        )}
-        {item.institutionName && (
-          <ThemedView variant="transparent" style={styles.userDetailRow}>
-            <FontAwesome name="building" size={14} color={theme.colors.textSecondary} />
-            <ThemedText variant="secondary" size="sm" style={styles.userDetailText}>
-              {item.institutionName}
-            </ThemedText>
-          </ThemedView>
-        )}
-      </ThemedView>
 
       <ThemedView variant="transparent" style={styles.userActions}>
         <PressableButton
@@ -470,7 +569,8 @@ export default function AdminUsersScreen() {
         />
       </ThemedView>
     </ThemedCard>
-  );
+    );
+  };
 
   return (
     <ScreenContainer variant="background">
@@ -829,7 +929,16 @@ export default function AdminUsersScreen() {
         </ThemedCard>
 
         {/* Liste des utilisateurs */}
-        {filteredUsers.length === 0 ? (
+        {isLoading ? (
+          <ThemedCard style={styles.emptyCard}>
+            <ThemedView variant="transparent" style={styles.emptyContent}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ThemedText variant="secondary" size="base" style={styles.emptyText}>
+                {t('common.loading') || 'Chargement...'}
+              </ThemedText>
+            </ThemedView>
+          </ThemedCard>
+        ) : filteredUsers.length === 0 ? (
           <ThemedCard style={styles.emptyCard}>
             <ThemedView variant="transparent" style={styles.emptyContent}>
               <FontAwesome name="users" size={48} color={theme.colors.textSecondary} />
@@ -844,7 +953,10 @@ export default function AdminUsersScreen() {
             renderItem={renderUser}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
+            ]}
           />
         )}
       </ScrollView>
@@ -926,6 +1038,15 @@ export default function AdminUsersScreen() {
                 keyboardType="email-address"
                 style={styles.modalInput}
               />
+              {showCreateModal && (
+                <ThemedInput
+                  placeholder={t('admin.users.temporaryPassword') || 'Mot de passe temporaire'}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  style={styles.modalInput}
+                />
+              )}
               <ThemedInput
                 placeholder={t('admin.users.phone') || 'Téléphone (optionnel)'}
                 value={formData.phone}
@@ -965,10 +1086,11 @@ export default function AdminUsersScreen() {
                 ))}
               </ThemedView>
 
-              {formData.role === 'agent' && (
+              {(formData.role === 'agent' || formData.role === 'admin') && (
                 <ThemedView variant="transparent" style={styles.pickerContainer}>
                   <ThemedText size="sm" weight="medium" style={styles.modalLabel}>
-                    {t('admin.users.department') || 'Département'} *
+                    {t('admin.users.department') || 'Département'} 
+                    {formData.role === 'agent' ? ' *' : ' (optionnel)'}
                   </ThemedText>
                   <Pressable
                     style={StyleSheet.flatten([
@@ -1010,16 +1132,19 @@ export default function AdminUsersScreen() {
                 onPress={() => {
                   setShowCreateModal(false);
                   setShowEditModal(false);
+                  setPassword('');
                 }}
                 label={t('common.cancel')}
                 variant="outline"
                 style={styles.modalButton}
+                disabled={isSaving}
               />
               <PressableButton
                 onPress={handleSave}
-                label={t('common.save')}
+                label={isSaving ? (t('common.saving') || 'Enregistrement...') : t('common.save')}
                 variant="primary"
                 style={styles.modalButton}
+                disabled={isSaving}
               />
             </ThemedView>
           </ThemedView>
@@ -1246,9 +1371,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    gap: 4,
   },
   userDetails: {
     marginTop: 8,

@@ -12,9 +12,10 @@ import { useLanguageStore } from '@/store/languageStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getRecordsForValidation } from '@/services/admin/adminService';
 
 export default function AdminStatisticsScreen() {
   const router = useRouter();
@@ -25,75 +26,180 @@ export default function AdminStatisticsScreen() {
   const { language } = useLanguageStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'pregnancies' | 'births'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [globalStats, setGlobalStats] = useState({
+    totalRegistrations: 0,
+    totalPregnancies: 0,
+    totalBirths: 0,
+    pendingValidation: 0,
+    validated: 0,
+    sentForLegalization: 0,
+    legalized: 0,
+    rejected: 0,
+  });
+  const [periodStats, setPeriodStats] = useState({
+    day: { pregnancies: 0, births: 0, validations: 0, legalizations: 0 },
+    week: { pregnancies: 0, births: 0, validations: 0, legalizations: 0 },
+    month: { pregnancies: 0, births: 0, validations: 0, legalizations: 0 },
+    year: { pregnancies: 0, births: 0, validations: 0, legalizations: 0 },
+  });
+  const [departmentStats, setDepartmentStats] = useState<Array<{
+    id: string;
+    code: string;
+    name: string;
+    nameKr: string;
+    pregnancies: number;
+    births: number;
+    total: number;
+  }>>([]);
+  const [timelineData, setTimelineData] = useState<Array<{
+    month: string;
+    pregnancies: number;
+    births: number;
+    validations: number;
+  }>>([]);
 
-  // Données simulées - Statistiques globales avancées
-  const globalStats = {
-    totalRegistrations: 1250,
-    totalPregnancies: 850,
-    totalBirths: 400,
-    pendingValidation: 45,
-    validated: 1100,
-    sentForLegalization: 950,
-    legalized: 800,
-    rejected: 5,
-  };
+  // Charger les statistiques
+  useEffect(() => {
+    loadStatistics();
+  }, [selectedPeriod]);
 
-  const periodStats = {
-    day: {
-      pregnancies: 12,
-      births: 8,
-      validations: 15,
-      legalizations: 10,
-    },
-    week: {
-      pregnancies: 78,
-      births: 52,
-      validations: 98,
-      legalizations: 75,
-    },
-    month: {
-      pregnancies: 245,
-      births: 178,
-      validations: 312,
-      legalizations: 245,
-    },
-    year: {
-      pregnancies: 2850,
-      births: 2100,
-      validations: 3780,
-      legalizations: 2900,
-    },
+  const loadStatistics = async () => {
+    setIsLoading(true);
+    try {
+      // Charger tous les enregistrements
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+
+      const allRecords = [...allPregnancies, ...allBirths];
+
+      // Distinguer pregnancies et births
+      const isBirthRecord = (r: any) => r.childFirstNames && r.childFirstNames.length > 0;
+      const isPregnancyRecord = (r: any) => !isBirthRecord(r) && (r.motherFirstNames || r.motherName);
+
+      // Statistiques globales
+      const totalPregnancies = allPregnancies.length;
+      const totalBirths = allBirths.length;
+      const totalRegistrations = allRecords.length;
+      const pendingValidation = allRecords.filter(r => (r.validationStatus || 'pending') === 'pending').length;
+      const validated = allRecords.filter(r => (r.validationStatus || 'pending') === 'validated').length;
+      const rejected = allRecords.filter(r => (r.validationStatus || 'pending') === 'rejected').length;
+      const legalized = allRecords.filter(r => r.certificateStatus === 'issued' || r.certificateStatus === 'approved').length;
+      const sentForLegalization = validated; // Approximation
+
+      setGlobalStats({
+        totalRegistrations,
+        totalPregnancies,
+        totalBirths,
+        pendingValidation,
+        validated,
+        sentForLegalization,
+        legalized,
+        rejected,
+      });
+
+      // Calculer les statistiques par période
+      const now = new Date();
+      const dayAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+      const getRecordsInPeriod = (startDate: Date) => {
+        return allRecords.filter(r => {
+          const createdAt = r.createdAt ? new Date(r.createdAt) : new Date(0);
+          return createdAt >= startDate;
+        });
+      };
+
+      const recordsDay = getRecordsInPeriod(dayAgo);
+      const recordsWeek = getRecordsInPeriod(weekAgo);
+      const recordsMonth = getRecordsInPeriod(monthAgo);
+      const recordsYear = getRecordsInPeriod(yearAgo);
+
+      const calculatePeriodStats = (records: any[]) => {
+        const pregnancies = records.filter(isPregnancyRecord).length;
+        const births = records.filter(isBirthRecord).length;
+        const validations = records.filter(r => (r.validationStatus || 'pending') === 'validated').length;
+        const legalizations = records.filter(r => r.certificateStatus === 'issued' || r.certificateStatus === 'approved').length;
+        return { pregnancies, births, validations, legalizations };
+      };
+
+      setPeriodStats({
+        day: calculatePeriodStats(recordsDay),
+        week: calculatePeriodStats(recordsWeek),
+        month: calculatePeriodStats(recordsMonth),
+        year: calculatePeriodStats(recordsYear),
+      });
+
+      // Statistiques par département
+      const deptMap = new Map<string, { pregnancies: number; births: number }>();
+      
+      allRecords.forEach(record => {
+        const dept = record.motherDepartment || record.birthDepartment || 'Unknown';
+        if (!deptMap.has(dept)) {
+          deptMap.set(dept, { pregnancies: 0, births: 0 });
+        }
+        const stats = deptMap.get(dept)!;
+        if (isPregnancyRecord(record)) {
+          stats.pregnancies++;
+        } else if (isBirthRecord(record)) {
+          stats.births++;
+        }
+      });
+
+      const deptStatsArray = Array.from(deptMap.entries()).map(([deptName, stats], index) => {
+        // Trouver le code du département
+        const dept = HAITIAN_DEPARTMENTS.find(d => d.name === deptName || d.nameKr === deptName);
+        return {
+          id: `${dept?.code || deptName.substring(0, 2).toUpperCase()}-${index}-${deptName}`, // Clé unique
+          code: dept?.code || deptName.substring(0, 2).toUpperCase(),
+          name: dept?.name || deptName,
+          nameKr: dept?.nameKr || deptName,
+          pregnancies: stats.pregnancies,
+          births: stats.births,
+          total: stats.pregnancies + stats.births,
+        };
+      }).sort((a, b) => b.total - a.total);
+
+      setDepartmentStats(deptStatsArray);
+
+      // Données temporelles (6 derniers mois)
+      const monthsData: Array<{ month: string; pregnancies: number; births: number; validations: number }> = [];
+      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+      
+      for (let i = 5; i >= 0; i--) {
+        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        
+        const monthRecords = allRecords.filter(r => {
+          const createdAt = r.createdAt ? new Date(r.createdAt) : new Date(0);
+          return createdAt >= monthDate && createdAt < nextMonth;
+        });
+
+        monthsData.push({
+          month: monthNames[monthDate.getMonth()],
+          pregnancies: monthRecords.filter(isPregnancyRecord).length,
+          births: monthRecords.filter(isBirthRecord).length,
+          validations: monthRecords.filter(r => (r.validationStatus || 'pending') === 'validated').length,
+        });
+      }
+
+      setTimelineData(monthsData);
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const currentPeriodStats = periodStats[selectedPeriod];
 
-  // Données par département (simulées)
-  const departmentStats = [
-    { code: 'OU', name: 'Ouest', nameKr: 'Lwès', pregnancies: 320, births: 180, total: 500 },
-    { code: 'AR', name: 'Artibonite', nameKr: 'Latibonit', pregnancies: 145, births: 85, total: 230 },
-    { code: 'NO', name: 'Nord', nameKr: 'Nò', pregnancies: 98, births: 52, total: 150 },
-    { code: 'NE', name: 'Nord-Est', nameKr: 'Nòdwès', pregnancies: 45, births: 28, total: 73 },
-    { code: 'NOU', name: 'Nord-Ouest', nameKr: 'Nòdès', pregnancies: 38, births: 22, total: 60 },
-    { code: 'CE', name: 'Centre', nameKr: 'Sant', pregnancies: 67, births: 35, total: 102 },
-    { code: 'SD', name: 'Sud', nameKr: 'Sid', pregnancies: 52, births: 30, total: 82 },
-    { code: 'SE', name: 'Sud-Est', nameKr: 'Sidès', pregnancies: 42, births: 25, total: 67 },
-    { code: 'GA', name: 'Grand\'Anse', nameKr: 'Grandans', pregnancies: 28, births: 18, total: 46 },
-    { code: 'NI', name: 'Nippes', nameKr: 'Nip', pregnancies: 15, births: 6, total: 21 },
-  ];
-
-  // Données temporelles (simulées - 6 derniers mois)
-  const timelineData = [
-    { month: 'Août', pregnancies: 180, births: 120, validations: 250 },
-    { month: 'Sept', pregnancies: 195, births: 135, validations: 280 },
-    { month: 'Oct', pregnancies: 210, births: 145, validations: 300 },
-    { month: 'Nov', pregnancies: 225, births: 160, validations: 320 },
-    { month: 'Déc', pregnancies: 240, births: 170, validations: 350 },
-    { month: 'Jan', pregnancies: 245, births: 178, validations: 312 },
-  ];
-
-  const maxValue = Math.max(
-    ...timelineData.map(d => Math.max(d.pregnancies, d.births, d.validations))
-  );
+  const maxValue = timelineData.length > 0
+    ? Math.max(...timelineData.map(d => Math.max(d.pregnancies, d.births, d.validations)))
+    : 100;
 
   const getDepartmentName = (dept: typeof departmentStats[0]) => {
     return language === 'ht' ? dept.nameKr : dept.name;
@@ -103,22 +209,13 @@ export default function AdminStatisticsScreen() {
     router.back();
   };
 
-  const handleExport = () => {
-    // TODO: Exporter les statistiques (PDF, Excel, etc.)
-    console.log('Exporter les statistiques');
-  };
-
-  const handleFilter = () => {
-    // TODO: Ouvrir modal de filtres avancés
-    console.log('Ouvrir filtres avancés');
-  };
-
   return (
     <ScreenContainer variant="background">
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -150,36 +247,6 @@ export default function AdminStatisticsScreen() {
           >
             {t('admin.statistics.title') || 'Statistiques Avancées'}
           </ThemedText>
-          <ThemedView variant="transparent" style={styles.headerActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerIconButton,
-                { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-                pressed && { opacity: 0.7 }
-              ]}
-              onPress={handleFilter}
-            >
-              <FontAwesome 
-                name="filter" 
-                size={isTablet ? 18 : 16} 
-                color="#fff" 
-              />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.headerIconButton,
-                { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-                pressed && { opacity: 0.7 }
-              ]}
-              onPress={handleExport}
-            >
-              <FontAwesome 
-                name="download" 
-                size={isTablet ? 18 : 16} 
-                color="#fff" 
-              />
-            </Pressable>
-          </ThemedView>
         </ThemedView>
 
         {/* Filtres de période */}
@@ -228,8 +295,17 @@ export default function AdminStatisticsScreen() {
           </ThemedView>
         </ThemedCard>
 
-        {/* Statistiques principales */}
-        <ThemedView variant="transparent" style={styles.mainStatsContainer}>
+        {isLoading ? (
+          <ThemedView variant="transparent" style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <ThemedText variant="secondary" size="sm" style={{ marginTop: 12 }}>
+              {t('common.loading') || 'Chargement des statistiques...'}
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <>
+            {/* Statistiques principales */}
+            <ThemedView variant="transparent" style={styles.mainStatsContainer}>
           <ThemedView variant="transparent" style={styles.mainStatsRow}>
             <ThemedCard style={styles.mainStatCard}>
               <ThemedView 
@@ -431,7 +507,7 @@ export default function AdminStatisticsScreen() {
           
           <FlatList
             data={departmentStats}
-            keyExtractor={(item) => item.code}
+            keyExtractor={(item) => item.id}
             scrollEnabled={false}
             renderItem={({ item }) => {
               const maxDeptValue = Math.max(...departmentStats.map(d => d.total));
@@ -562,6 +638,8 @@ export default function AdminStatisticsScreen() {
             </ThemedView>
           </ThemedView>
         </ThemedCard>
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
@@ -569,13 +647,13 @@ export default function AdminStatisticsScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 100,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 0,
     maxWidth: '100%',
     alignSelf: 'stretch',
-    paddingBottom: 120,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   header: {
     flexDirection: 'row',
@@ -836,6 +914,12 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 2,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
   },
 });
 

@@ -13,10 +13,13 @@ import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { getUserById, AdminUser } from '@/services/admin/userService';
+import { formatDateSafe } from '@/utils/date';
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(6, 'Le mot de passe actuel est requis'),
@@ -34,21 +37,42 @@ export default function HospitalProfileScreen() {
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState<AdminUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Données simulées de l'institution
-  const mockInstitution = {
-    name: 'Hôpital Général de Port-au-Prince',
-    type: 'Hôpital Public',
-    licenseNumber: 'HT-2024-001',
-    director: 'Dr. Jean Baptiste',
-    registrationDate: '15/01/2024',
-    email: 'contact@hgpp.ht',
-    phone: '+509 1234 5678',
-    address: '123, Avenue Christophe, Port-au-Prince, Haïti',
-    capacity: 250,
-    staff: 180,
+  const { user } = useAuthStore();
+
+  // Charger le profil utilisateur
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const userProfile = await getUserById(user.id);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        Alert.alert(t('common.error'), t('hospital.profile.loadError') || t('agent.profile.loadError') || 'Erreur lors du chargement du profil');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
+
+  // Obtenir le nom complet du directeur
+  const getDirectorName = (user: AdminUser | null) => {
+    if (!user) return '';
+    const firstNames = user.firstNames?.filter(fn => fn.trim()).join(' ') || '';
+    return `${firstNames} ${user.lastName}`.trim();
   };
 
   const {
@@ -99,16 +123,44 @@ export default function HospitalProfileScreen() {
     );
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-  };
+  if (isLoading) {
+    return (
+      <ScreenContainer variant="background">
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 100 }]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ThemedText variant="secondary" size="base" style={{ marginTop: 16 }}>
+            {t('common.loading') || 'Chargement...'}
+          </ThemedText>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <ScreenContainer variant="background">
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 100 }]}>
+          <ThemedText variant="error" size="base">
+            {t('hospital.profile.loadError') || t('agent.profile.loadError') || 'Erreur lors du chargement du profil'}
+          </ThemedText>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  const institutionName = profile.institutionName || t('hospital.profile.institutionName') || 'Institution';
+  const directorName = getDirectorName(profile);
+  const registrationDate = profile.createdAt 
+    ? formatDateSafe(profile.createdAt instanceof Date ? profile.createdAt : profile.createdAt.toDate(), 'dd/MM/yyyy')
+    : '';
 
   return (
     <ScreenContainer variant="background">
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -146,14 +198,16 @@ export default function HospitalProfileScreen() {
               weight="bold"
               style={styles.institutionName}
             >
-              {mockInstitution.name}
+              {institutionName}
             </ThemedText>
-            <ThemedText 
-              size="sm"
-              style={styles.institutionType}
-            >
-              {mockInstitution.type}
-            </ThemedText>
+            {directorName && (
+              <ThemedText 
+                size="sm"
+                style={styles.institutionType}
+              >
+                {t('hospital.profile.director') || 'Directeur'}: {directorName}
+              </ThemedText>
+            )}
           </ThemedView>
         </ThemedView>
 
@@ -170,34 +224,24 @@ export default function HospitalProfileScreen() {
                 {t('hospital.profile.name') || 'Nom'}
               </ThemedText>
               <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.name}
+                {institutionName}
               </ThemedText>
             </ThemedView>
           </ThemedView>
 
-          <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
-            <FontAwesome name="shield" size={18} color={theme.colors.primary} />
-            <ThemedView variant="transparent" style={styles.infoContent}>
-              <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
-                {t('hospital.profile.licenseNumber') || 'Numéro de Licence'}
-              </ThemedText>
-              <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.licenseNumber}
-              </ThemedText>
+          {directorName && (
+            <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
+              <FontAwesome name="user-md" size={18} color={theme.colors.primary} />
+              <ThemedView variant="transparent" style={styles.infoContent}>
+                <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
+                  {t('hospital.profile.director') || 'Directeur'}
+                </ThemedText>
+                <ThemedText size="base" weight="medium" style={styles.infoValue}>
+                  {directorName}
+                </ThemedText>
+              </ThemedView>
             </ThemedView>
-          </ThemedView>
-
-          <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
-            <FontAwesome name="user-md" size={18} color={theme.colors.primary} />
-            <ThemedView variant="transparent" style={styles.infoContent}>
-              <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
-                {t('hospital.profile.director') || 'Directeur'}
-              </ThemedText>
-              <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.director}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
+          )}
 
           <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
             <FontAwesome name="calendar" size={18} color={theme.colors.primary} />
@@ -206,7 +250,7 @@ export default function HospitalProfileScreen() {
                 {t('hospital.profile.registrationDate') || 'Date d\'enregistrement'}
               </ThemedText>
               <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.registrationDate}
+                {registrationDate || t('common.notProvided') || 'Non renseigné'}
               </ThemedText>
             </ThemedView>
           </ThemedView>
@@ -225,68 +269,26 @@ export default function HospitalProfileScreen() {
                 {t('hospital.profile.email') || 'Email'}
               </ThemedText>
               <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.email}
+                {profile.email || t('common.notProvided') || 'Non renseigné'}
               </ThemedText>
             </ThemedView>
           </ThemedView>
 
-          <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
-            <FontAwesome name="phone" size={18} color={theme.colors.primary} />
-            <ThemedView variant="transparent" style={styles.infoContent}>
-              <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
-                {t('hospital.profile.phone') || 'Téléphone'}
-              </ThemedText>
-              <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.phone}
-              </ThemedText>
+          {profile.phone && (
+            <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
+              <FontAwesome name="phone" size={18} color={theme.colors.primary} />
+              <ThemedView variant="transparent" style={styles.infoContent}>
+                <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
+                  {t('hospital.profile.phone') || 'Téléphone'}
+                </ThemedText>
+                <ThemedText size="base" weight="medium" style={styles.infoValue}>
+                  {profile.phone}
+                </ThemedText>
+              </ThemedView>
             </ThemedView>
-          </ThemedView>
-
-          <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoRow, styles.infoRowSeparator])}>
-            <FontAwesome name="map-marker" size={18} color={theme.colors.primary} />
-            <ThemedView variant="transparent" style={StyleSheet.flatten([styles.infoContent, styles.infoContentMultiline])}>
-              <ThemedText variant="secondary" size="sm" style={styles.infoLabel}>
-                {t('hospital.profile.address') || 'Adresse'}
-              </ThemedText>
-              <ThemedText size="base" weight="medium" style={styles.infoValue}>
-                {mockInstitution.address}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
+          )}
         </ThemedCard>
 
-        {/* Capacité & Personnel */}
-        <ThemedView variant="transparent" style={styles.statsGrid}>
-          <ThemedCard style={styles.statsCard}>
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([styles.statsIcon, { backgroundColor: theme.colors.primary + '20' }])}
-            >
-              <FontAwesome name="bed" size={24} color={theme.colors.primary} />
-            </ThemedView>
-            <ThemedText size="2xl" weight="bold" style={styles.statsNumber}>
-              {mockInstitution.capacity}
-            </ThemedText>
-            <ThemedText variant="secondary" size="sm" style={styles.statsLabel}>
-              {t('hospital.profile.beds') || 'Lits'}
-            </ThemedText>
-          </ThemedCard>
-
-          <ThemedCard style={styles.statsCard}>
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([styles.statsIcon, { backgroundColor: theme.colors.secondary + '20' }])}
-            >
-              <FontAwesome name="users" size={24} color={theme.colors.secondary} />
-            </ThemedView>
-            <ThemedText size="2xl" weight="bold" style={styles.statsNumber}>
-              {mockInstitution.staff}
-            </ThemedText>
-            <ThemedText variant="secondary" size="sm" style={styles.statsLabel}>
-              {t('hospital.profile.activeStaff') || 'Personnel Actif'}
-            </ThemedText>
-          </ThemedCard>
-        </ThemedView>
 
         {/* Actions */}
         <ThemedView variant="transparent" style={styles.actionsContainer}>
@@ -454,7 +456,7 @@ export default function HospitalProfileScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 100,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 32,
@@ -594,6 +596,12 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
 });
 

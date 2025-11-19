@@ -161,50 +161,36 @@ export function BirthForm({ translationPrefix, onSuccess, onCancel }: BirthFormP
     try {
       const fullData: BirthFormData = { ...step1Data, ...step2Data, ...data };
       
-      // Mapper les données du formulaire vers le format du store
-      const childFirstName = (fullData.childFirstNames || []).filter(n => n.trim()).join(' ');
-      const childName = fullData.childLastName;
-      
-      const birthPlace = [
-        fullData.birthPlaceName,
-        fullData.birthAddress,
-        fullData.birthDepartment
-      ].filter(Boolean).join(', ');
-
-      const motherName = [
-        ...(fullData.motherFirstNames || []).filter(n => n.trim()),
-        fullData.motherLastName
-      ].join(' ').trim();
-
-      const fatherName = fullData.fatherFirstNames && fullData.fatherLastName
-        ? [
-            ...(fullData.fatherFirstNames || []).filter(n => n.trim()),
-            fullData.fatherLastName
-          ].join(' ').trim()
-        : '';
-
-      const witness1Name = [
-        ...(fullData.witness1FirstNames || []).filter(n => n.trim()),
-        fullData.witness1LastName
-      ].join(' ').trim();
-
-      const witness2Name = [
-        ...(fullData.witness2FirstNames || []).filter(n => n.trim()),
-        fullData.witness2LastName
-      ].join(' ').trim();
-
-      // Sauvegarder dans le store (qui gère SQLite et Firestore)
+      // Sauvegarder directement tous les champs du formulaire avec leurs noms d'origine
+      // Pas de transformation - les données doivent être identiques au formulaire
       await addBirth({
-        childName,
-        childFirstName,
+        // Étape 1 : Informations de l'enfant
+        childFirstNames: fullData.childFirstNames || [],
+        childLastName: fullData.childLastName,
         birthDate: fullData.birthDate,
-        birthPlace,
+        birthTime: fullData.birthTime,
         gender: fullData.gender,
-        motherName,
-        motherId: '', // Peut être ajouté plus tard si nécessaire
-        fatherName,
-        fatherId: '', // Peut être ajouté plus tard si nécessaire
-        witnesses: [witness1Name, witness2Name].filter(Boolean),
+        birthPlaceType: fullData.birthPlaceType,
+        birthPlaceName: fullData.birthPlaceName,
+        birthAddress: fullData.birthAddress,
+        birthDepartment: fullData.birthDepartment,
+        // Étape 2 : Informations des parents
+        motherFirstNames: fullData.motherFirstNames || [],
+        motherLastName: fullData.motherLastName,
+        motherProfession: fullData.motherProfession,
+        motherAddress: fullData.motherAddress,
+        fatherFirstNames: fullData.fatherFirstNames,
+        fatherLastName: fullData.fatherLastName,
+        fatherProfession: fullData.fatherProfession,
+        fatherAddress: fullData.fatherAddress,
+        // Étape 3 : Informations sur les témoins
+        witness1FirstNames: fullData.witness1FirstNames || [],
+        witness1LastName: fullData.witness1LastName,
+        witness1Address: fullData.witness1Address,
+        witness2FirstNames: fullData.witness2FirstNames || [],
+        witness2LastName: fullData.witness2LastName,
+        witness2Address: fullData.witness2Address,
+        pregnancyId: fullData.pregnancyId,
       });
 
       Alert.alert(
@@ -796,8 +782,8 @@ export function BirthForm({ translationPrefix, onSuccess, onCancel }: BirthFormP
                       >
                         {value
                           ? (currentLanguage === 'fr'
-                            ? HAITIAN_DEPARTMENTS.find(d => d.code === value)?.name
-                            : HAITIAN_DEPARTMENTS.find(d => d.code === value)?.nameKr) || value
+                            ? HAITIAN_DEPARTMENTS.find(d => d.name === value || d.code === value)?.name
+                            : HAITIAN_DEPARTMENTS.find(d => d.name === value || d.code === value)?.nameKr) || value
                           : t(getTranslationKey('birthDepartment'))}
                       </ThemedText>
                       <FontAwesome name="chevron-down" size={16} color={theme.colors.textSecondary} />
@@ -837,25 +823,26 @@ export function BirthForm({ translationPrefix, onSuccess, onCancel }: BirthFormP
                                 style={[
                                   styles.modalOption,
                                   {
-                                    backgroundColor: value === dept.code 
+                                    backgroundColor: value === dept.name 
                                       ? theme.colors.primary + '20' 
                                       : theme.colors.surface,
-                                    borderColor: value === dept.code 
+                                    borderColor: value === dept.name 
                                       ? theme.colors.primary 
                                       : theme.colors.border,
                                   }
                                 ]}
                                 onPress={() => {
-                                  onChange(dept.code);
+                                  // Sauvegarder le nom complet au lieu du code
+                                  onChange(dept.name);
                                   setShowDepartmentModal(false);
                                 }}
                               >
                                 <ThemedText
                                   size="base"
-                                  weight={value === dept.code ? 'semibold' : 'normal'}
-                                  style={{
-                                    color: value === dept.code ? theme.colors.primary : theme.colors.text,
-                                  }}
+                                    weight={value === dept.name ? 'semibold' : 'normal'}
+                                    style={{
+                                      color: value === dept.name ? theme.colors.primary : theme.colors.text,
+                                    }}
                                 >
                                   {currentLanguage === 'fr' ? dept.name : dept.nameKr}
                                 </ThemedText>

@@ -8,12 +8,16 @@ import {
 import { HAITIAN_DEPARTMENTS } from '@/constants/departments';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { getRecordsForValidation, rejectRecord, validateRecord, validateRecordsBulk, ValidationStatus } from '@/services/admin/adminService';
+import { useAuthStore } from '@/store/authStore';
+import { useBirthStore } from '@/store/birthStore';
 import { useLanguageStore } from '@/store/languageStore';
+import { usePregnancyStore } from '@/store/pregnancyStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, TextInput as RNTextInput, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'pending' | 'validated' | 'rejected';
@@ -96,8 +100,240 @@ export default function AdminValidationScreen() {
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [recordForDetails, setRecordForDetails] = useState<ValidationRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [records, setRecords] = useState<ValidationRecord[]>([]);
+  const [allRecordsForCounts, setAllRecordsForCounts] = useState<ValidationRecord[]>([]);
+  const { user } = useAuthStore();
+  const { pregnancies } = usePregnancyStore();
+  const { births } = useBirthStore();
 
-  // Données simulées avec détails complets
+  // Charger les enregistrements depuis Firestore
+  useEffect(() => {
+    loadRecords();
+    loadAllRecordsForCounts(); // Charger tous les enregistrements pour les compteurs
+  }, [activeTab, recordTypeFilter]);
+
+  const loadRecords = async () => {
+    setIsLoading(true);
+    try {
+      const allRecords: ValidationRecord[] = [];
+      
+      // Charger les pregnancies
+      if (recordTypeFilter === 'all' || recordTypeFilter === 'pregnancy') {
+        const status = activeTab === 'pending' ? 'pending' : activeTab === 'validated' ? 'validated' : 'rejected';
+        const pregnancyRecords = await getRecordsForValidation('pregnancy', status as ValidationStatus);
+        
+        for (const preg of pregnancyRecords) {
+          const motherName = (Array.isArray(preg.motherFirstNames) && preg.motherFirstNames.length > 0 && preg.motherLastName)
+            ? `${preg.motherFirstNames.join(' ')} ${preg.motherLastName}`
+            : preg.motherName || 'N/A';
+          
+          allRecords.push({
+            id: preg.firestoreId || preg.id,
+            type: 'pregnancy',
+            referenceNumber: preg.id || `PR-${preg.firestoreId?.substring(0, 8)}`,
+            date: preg.createdAt || new Date().toISOString(),
+            recordedBy: preg.recordedBy || 'Unknown',
+            recordedByType: (preg.recordedByType as 'agent' | 'hospital' | 'admin') || 'agent',
+            motherName,
+            status: (preg.validationStatus || 'pending') as 'pending' | 'validated' | 'rejected',
+            rejectionReason: preg.rejectionReason,
+            details: {
+              motherFirstNames: preg.motherFirstNames || [],
+              motherLastName: preg.motherLastName,
+              motherBirthDate: preg.motherBirthDate,
+              motherPhone: preg.motherPhone,
+              motherPhoneAlt: preg.motherPhoneAlt,
+              motherAddress: preg.motherAddress,
+              motherCity: preg.motherCity,
+              motherDepartment: preg.motherDepartment,
+              motherBloodGroup: preg.motherBloodGroup,
+              estimatedDeliveryDate: preg.estimatedDeliveryDate,
+              estimatedDeliveryMonth: preg.estimatedDeliveryMonth,
+              pregnancyCount: preg.pregnancyCount,
+              healthCondition: preg.healthCondition,
+              notes: preg.notes,
+            },
+          });
+        }
+      }
+
+      // Charger les births
+      if (recordTypeFilter === 'all' || recordTypeFilter === 'birth') {
+        const status = activeTab === 'pending' ? 'pending' : activeTab === 'validated' ? 'validated' : 'rejected';
+        const birthRecords = await getRecordsForValidation('birth', status as ValidationStatus);
+        
+        for (const birth of birthRecords) {
+          const childName = (Array.isArray(birth.childFirstNames) && birth.childFirstNames.length > 0 && birth.childLastName)
+            ? `${birth.childFirstNames.join(' ')} ${birth.childLastName}`
+            : birth.childName || 'N/A';
+          const motherName = (Array.isArray(birth.motherFirstNames) && birth.motherFirstNames.length > 0 && birth.motherLastName)
+            ? `${birth.motherFirstNames.join(' ')} ${birth.motherLastName}`
+            : birth.motherName || 'N/A';
+          const fatherName = (Array.isArray(birth.fatherFirstNames) && birth.fatherFirstNames.length > 0 && birth.fatherLastName)
+            ? `${birth.fatherFirstNames.join(' ')} ${birth.fatherLastName}`
+            : birth.fatherName;
+          
+          allRecords.push({
+            id: birth.firestoreId || birth.id,
+            type: 'birth',
+            referenceNumber: birth.id || `INPR-${birth.firestoreId?.substring(0, 8)}`,
+            date: birth.createdAt || new Date().toISOString(),
+            recordedBy: birth.recordedBy || 'Unknown',
+            recordedByType: (birth.recordedByType as 'agent' | 'hospital' | 'admin') || 'agent',
+            childName,
+            motherName,
+            fatherName,
+            status: (birth.validationStatus || 'pending') as 'pending' | 'validated' | 'rejected',
+            rejectionReason: birth.rejectionReason,
+            details: {
+              childFirstNames: birth.childFirstNames || [],
+              childLastName: birth.childLastName,
+              birthDate: birth.birthDate,
+              birthTime: birth.birthTime,
+              gender: birth.gender,
+              birthPlaceType: birth.birthPlaceType,
+              birthPlaceName: birth.birthPlaceName,
+              birthAddress: birth.birthAddress,
+              birthDepartment: birth.birthDepartment,
+              motherFirstNames: birth.motherFirstNames || [],
+              motherLastName: birth.motherLastName,
+              motherProfession: birth.motherProfession,
+              motherAddress: birth.motherAddress,
+              fatherFirstNames: birth.fatherFirstNames,
+              fatherLastName: birth.fatherLastName,
+              fatherProfession: birth.fatherProfession,
+              fatherAddress: birth.fatherAddress,
+              witness1FirstNames: birth.witness1FirstNames,
+              witness1LastName: birth.witness1LastName,
+              witness1Address: birth.witness1Address,
+              witness2FirstNames: birth.witness2FirstNames,
+              witness2LastName: birth.witness2LastName,
+              witness2Address: birth.witness2Address,
+              pregnancyId: birth.pregnancyId,
+            },
+          });
+        }
+      }
+
+      setRecords(allRecords);
+    } catch (error) {
+      console.error('Error loading records:', error);
+      Alert.alert(t('common.error'), t('admin.validation.loadError') || 'Erreur lors du chargement des enregistrements');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Charger TOUS les enregistrements (tous statuts) pour calculer les compteurs
+  const loadAllRecordsForCounts = async () => {
+    try {
+      const allRecords: ValidationRecord[] = [];
+      
+      // Charger toutes les pregnancies (sans filtre de statut)
+      if (recordTypeFilter === 'all' || recordTypeFilter === 'pregnancy') {
+        const pregnancyRecords = await getRecordsForValidation('pregnancy'); // Pas de filtre de statut
+        
+        for (const preg of pregnancyRecords) {
+          const motherName = (Array.isArray(preg.motherFirstNames) && preg.motherFirstNames.length > 0 && preg.motherLastName)
+            ? `${preg.motherFirstNames.join(' ')} ${preg.motherLastName}`
+            : preg.motherName || 'N/A';
+          
+          allRecords.push({
+            id: preg.firestoreId || preg.id,
+            type: 'pregnancy',
+            referenceNumber: preg.id || `PR-${preg.firestoreId?.substring(0, 8)}`,
+            date: preg.createdAt || new Date().toISOString(),
+            recordedBy: preg.recordedBy || 'Unknown',
+            recordedByType: (preg.recordedByType as 'agent' | 'hospital' | 'admin') || 'agent',
+            motherName,
+            status: (preg.validationStatus || 'pending') as 'pending' | 'validated' | 'rejected',
+            rejectionReason: preg.rejectionReason,
+            details: {
+              motherFirstNames: preg.motherFirstNames || [],
+              motherLastName: preg.motherLastName,
+              motherBirthDate: preg.motherBirthDate,
+              motherPhone: preg.motherPhone,
+              motherPhoneAlt: preg.motherPhoneAlt,
+              motherAddress: preg.motherAddress,
+              motherCity: preg.motherCity,
+              motherDepartment: preg.motherDepartment,
+              motherBloodGroup: preg.motherBloodGroup,
+              estimatedDeliveryDate: preg.estimatedDeliveryDate,
+              estimatedDeliveryMonth: preg.estimatedDeliveryMonth,
+              pregnancyCount: preg.pregnancyCount,
+              healthCondition: preg.healthCondition,
+              notes: preg.notes,
+            },
+          });
+        }
+      }
+
+      // Charger tous les births (sans filtre de statut)
+      if (recordTypeFilter === 'all' || recordTypeFilter === 'birth') {
+        const birthRecords = await getRecordsForValidation('birth'); // Pas de filtre de statut
+        
+        for (const birth of birthRecords) {
+          const childName = (Array.isArray(birth.childFirstNames) && birth.childFirstNames.length > 0 && birth.childLastName)
+            ? `${birth.childFirstNames.join(' ')} ${birth.childLastName}`
+            : birth.childName || 'N/A';
+          const motherName = (Array.isArray(birth.motherFirstNames) && birth.motherFirstNames.length > 0 && birth.motherLastName)
+            ? `${birth.motherFirstNames.join(' ')} ${birth.motherLastName}`
+            : birth.motherName || 'N/A';
+          const fatherName = (Array.isArray(birth.fatherFirstNames) && birth.fatherFirstNames.length > 0 && birth.fatherLastName)
+            ? `${birth.fatherFirstNames.join(' ')} ${birth.fatherLastName}`
+            : birth.fatherName;
+          
+          allRecords.push({
+            id: birth.firestoreId || birth.id,
+            type: 'birth',
+            referenceNumber: birth.id || `INPR-${birth.firestoreId?.substring(0, 8)}`,
+            date: birth.createdAt || new Date().toISOString(),
+            recordedBy: birth.recordedBy || 'Unknown',
+            recordedByType: (birth.recordedByType as 'agent' | 'hospital' | 'admin') || 'agent',
+            childName,
+            motherName,
+            fatherName,
+            status: (birth.validationStatus || 'pending') as 'pending' | 'validated' | 'rejected',
+            rejectionReason: birth.rejectionReason,
+            details: {
+              childFirstNames: birth.childFirstNames || [],
+              childLastName: birth.childLastName,
+              birthDate: birth.birthDate,
+              birthTime: birth.birthTime,
+              gender: birth.gender,
+              birthPlaceType: birth.birthPlaceType,
+              birthPlaceName: birth.birthPlaceName,
+              birthAddress: birth.birthAddress,
+              birthDepartment: birth.birthDepartment,
+              motherFirstNames: birth.motherFirstNames || [],
+              motherLastName: birth.motherLastName,
+              motherProfession: birth.motherProfession,
+              motherAddress: birth.motherAddress,
+              fatherFirstNames: birth.fatherFirstNames,
+              fatherLastName: birth.fatherLastName,
+              fatherProfession: birth.fatherProfession,
+              fatherAddress: birth.fatherAddress,
+              witness1FirstNames: birth.witness1FirstNames,
+              witness1LastName: birth.witness1LastName,
+              witness1Address: birth.witness1Address,
+              witness2FirstNames: birth.witness2FirstNames,
+              witness2LastName: birth.witness2LastName,
+              witness2Address: birth.witness2Address,
+              pregnancyId: birth.pregnancyId,
+            },
+          });
+        }
+      }
+
+      setAllRecordsForCounts(allRecords);
+    } catch (error) {
+      console.error('Error loading all records for counts:', error);
+      // Ne pas afficher d'alerte pour cette fonction, c'est juste pour les compteurs
+    }
+  };
+
+  // Données simulées avec détails complets (fallback si pas de données)
   const mockRecords: ValidationRecord[] = [
     {
       id: '1',
@@ -270,7 +506,7 @@ export default function AdminValidationScreen() {
     }
   };
 
-  const filteredRecords = mockRecords.filter(record => {
+  const filteredRecords = (records.length > 0 ? records : mockRecords).filter(record => {
     const matchesTab = record.status === activeTab;
     const matchesType = recordTypeFilter === 'all' || record.type === recordTypeFilter;
     const matchesPeriod = isDateInPeriod(record.date, periodFilter);
@@ -283,15 +519,16 @@ export default function AdminValidationScreen() {
     return matchesTab && matchesType && matchesPeriod && matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const pendingCount = mockRecords.filter(r => r.status === 'pending').length;
-  const validatedCount = mockRecords.filter(r => r.status === 'validated').length;
-  const rejectedCount = mockRecords.filter(r => r.status === 'rejected').length;
+  // Utiliser allRecordsForCounts pour les compteurs (tous les statuts)
+  const pendingCount = (allRecordsForCounts.length > 0 ? allRecordsForCounts : mockRecords).filter(r => r.status === 'pending').length;
+  const validatedCount = (allRecordsForCounts.length > 0 ? allRecordsForCounts : mockRecords).filter(r => r.status === 'validated').length;
+  const rejectedCount = (allRecordsForCounts.length > 0 ? allRecordsForCounts : mockRecords).filter(r => r.status === 'rejected').length;
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleValidate = (record: ValidationRecord) => {
+  const handleValidate = async (record: ValidationRecord) => {
     Alert.alert(
       t('admin.validation.validateTitle') || 'Valider l\'enregistrement',
       t('admin.validation.validateMessage') || `Voulez-vous valider l'enregistrement ${record.referenceNumber} ?`,
@@ -302,10 +539,17 @@ export default function AdminValidationScreen() {
         },
         {
           text: t('common.confirm'),
-          onPress: () => {
-            // TODO: Appel API pour valider
-            console.log('Valider:', record.id);
-            Alert.alert(t('common.success'), t('admin.validation.validated') || 'Enregistrement validé avec succès');
+          onPress: async () => {
+            try {
+              const firestoreId = record.id;
+              await validateRecord(record.type, firestoreId, user?.email);
+              Alert.alert(t('common.success'), t('admin.validation.validated') || 'Enregistrement validé avec succès');
+              // Recharger les données
+              await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
+            } catch (error: any) {
+              console.error('Error validating record:', error);
+              Alert.alert(t('common.error'), error.message || t('admin.validation.validateError') || 'Erreur lors de la validation');
+            }
           },
         },
       ]
@@ -318,7 +562,7 @@ export default function AdminValidationScreen() {
     setShowRejectModal(true);
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
     if (!selectedRecord) return;
     
     if (!rejectionReason.trim()) {
@@ -326,12 +570,19 @@ export default function AdminValidationScreen() {
       return;
     }
 
-    // TODO: Appel API pour rejeter
-    console.log('Rejeter:', selectedRecord.id, 'Raison:', rejectionReason);
-    Alert.alert(t('common.success'), t('admin.validation.rejected') || 'Enregistrement rejeté');
-    setShowRejectModal(false);
-    setSelectedRecord(null);
-    setRejectionReason('');
+    try {
+      const firestoreId = selectedRecord.id;
+      await rejectRecord(selectedRecord.type, firestoreId, rejectionReason, user?.email);
+      Alert.alert(t('common.success'), t('admin.validation.rejected') || 'Enregistrement rejeté');
+      setShowRejectModal(false);
+      setSelectedRecord(null);
+      setRejectionReason('');
+      // Recharger les données
+      await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
+    } catch (error: any) {
+      console.error('Error rejecting record:', error);
+      Alert.alert(t('common.error'), error.message || t('admin.validation.rejectError') || 'Erreur lors du rejet');
+    }
   };
 
   const handleViewDetails = (record: ValidationRecord) => {
@@ -357,7 +608,7 @@ export default function AdminValidationScreen() {
     }
   };
 
-  const handleBulkValidate = () => {
+  const handleBulkValidate = async () => {
     if (selectedRecords.size === 0) {
       Alert.alert(t('common.error'), t('admin.validation.selectRecords') || 'Veuillez sélectionner au moins un enregistrement');
       return;
@@ -373,11 +624,39 @@ export default function AdminValidationScreen() {
         },
         {
           text: t('common.confirm'),
-          onPress: () => {
-            // TODO: Appel API pour valider en masse
-            console.log('Valider en masse:', Array.from(selectedRecords));
-            Alert.alert(t('common.success'), t('admin.validation.bulkValidated') || 'Enregistrements validés avec succès');
-            setSelectedRecords(new Set());
+          onPress: async () => {
+            try {
+              // Grouper par type
+              const pregnancyIds: string[] = [];
+              const birthIds: string[] = [];
+              
+              for (const recordId of selectedRecords) {
+                const record = filteredRecords.find(r => r.id === recordId);
+                if (record) {
+                  if (record.type === 'pregnancy') {
+                    pregnancyIds.push(record.id);
+                  } else {
+                    birthIds.push(record.id);
+                  }
+                }
+              }
+
+              // Valider par type
+              if (pregnancyIds.length > 0) {
+                await validateRecordsBulk('pregnancy', pregnancyIds, user?.email);
+              }
+              if (birthIds.length > 0) {
+                await validateRecordsBulk('birth', birthIds, user?.email);
+              }
+
+              Alert.alert(t('common.success'), t('admin.validation.bulkValidated') || 'Enregistrements validés avec succès');
+              setSelectedRecords(new Set());
+              // Recharger les données
+              await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
+            } catch (error: any) {
+              console.error('Error bulk validating:', error);
+              Alert.alert(t('common.error'), error.message || t('admin.validation.bulkValidateError') || 'Erreur lors de la validation en masse');
+            }
           },
         },
       ]
@@ -935,7 +1214,16 @@ export default function AdminValidationScreen() {
         </ThemedView>
 
         {/* Liste des enregistrements */}
-        {filteredRecords.length === 0 ? (
+        {isLoading ? (
+          <ThemedCard style={styles.emptyCard}>
+            <ThemedView variant="transparent" style={styles.emptyContent}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ThemedText variant="secondary" size="base" style={styles.emptyText}>
+                {t('common.loading') || 'Chargement...'}
+              </ThemedText>
+            </ThemedView>
+          </ThemedCard>
+        ) : filteredRecords.length === 0 ? (
           <ThemedCard style={styles.emptyCard}>
             <ThemedView variant="transparent" style={styles.emptyContent}>
               <FontAwesome name="inbox" size={48} color={theme.colors.textSecondary} />
@@ -950,7 +1238,10 @@ export default function AdminValidationScreen() {
             renderItem={renderRecord}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
+            ]}
           />
         )}
       </ScrollView>

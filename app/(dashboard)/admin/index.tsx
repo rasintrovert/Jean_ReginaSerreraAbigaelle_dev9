@@ -9,72 +9,174 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getRecordsForValidation } from '@/services/admin/adminService';
+import { usePregnancyStore } from '@/store/pregnancyStore';
+import { useBirthStore } from '@/store/birthStore';
+import { getAllEmergencyReports } from '@/services/emergency/emergencyService';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('month');
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    validated: 0,
+    legalized: 0,
+    pregnancies: 0,
+    births: 0,
+  });
+  const [emergencyCount, setEmergencyCount] = useState(0);
+  const [recentRecords, setRecentRecords] = useState<Array<{
+    id: string;
+    type: 'pregnancy' | 'birth';
+    name: string;
+    date: Date;
+    status: 'pending' | 'validated' | 'rejected';
+  }>>([]);
+  const { pregnancies } = usePregnancyStore();
+  const { births } = useBirthStore();
 
-  // Données simulées - Statistiques
-  const statsThisWeek = {
-    pregnancies: 45,
-    births: 32,
-  };
-  const statsThisMonth = {
-    pregnancies: 245,
-    births: 178,
+  // Charger les statistiques et cas récents
+  useEffect(() => {
+    loadDashboardData();
+    loadEmergencyCount();
+  }, [selectedPeriod]);
+
+  // Recharger le compteur d'urgence quand l'écran est mis au focus
+  useFocusEffect(
+    useCallback(() => {
+      loadEmergencyCount();
+    }, [])
+  );
+
+  const loadEmergencyCount = async () => {
+    try {
+      const reports = await getAllEmergencyReports();
+      const pendingReports = reports.filter(r => r.status === 'pending');
+      setEmergencyCount(pendingReports.length);
+    } catch (error) {
+      console.error('Error loading emergency count:', error);
+    }
   };
 
-  // Statistiques globales pour la carte
-  const globalStats = {
-    total: 127,
-    pending: 23,
-    validated: 54,
-    legalized: 50,
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Charger tous les enregistrements pour calculer les statistiques
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+
+      // Calculer les statistiques globales
+      const allRecords = [...allPregnancies, ...allBirths];
+      const total = allRecords.length;
+      const pending = allRecords.filter(r => (r.validationStatus || 'pending') === 'pending').length;
+      const validated = allRecords.filter(r => (r.validationStatus || 'pending') === 'validated').length;
+      const legalized = allRecords.filter(r => (r.certificateStatus === 'issued' || r.certificateStatus === 'approved')).length;
+
+      // Calculer les statistiques par période
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const recordsThisWeek = allRecords.filter(r => {
+        const createdAt = r.createdAt ? new Date(r.createdAt) : new Date(0);
+        return createdAt >= weekAgo;
+      });
+
+      const recordsThisMonth = allRecords.filter(r => {
+        const createdAt = r.createdAt ? new Date(r.createdAt) : new Date(0);
+        return createdAt >= monthAgo;
+      });
+
+      // Distinguer pregnancies et births : births ont childFirstNames, pregnancies ont motherFirstNames mais pas childFirstNames
+      const isBirthRecord = (r: any) => r.childFirstNames && r.childFirstNames.length > 0;
+      const isPregnancyRecord = (r: any) => !isBirthRecord(r) && (r.motherFirstNames || r.motherName);
+
+      const pregnanciesThisWeek = recordsThisWeek.filter(isPregnancyRecord).length;
+      const birthsThisWeek = recordsThisWeek.filter(isBirthRecord).length;
+      const pregnanciesThisMonth = recordsThisMonth.filter(isPregnancyRecord).length;
+      const birthsThisMonth = recordsThisMonth.filter(isBirthRecord).length;
+
+      // Statistiques selon la période sélectionnée
+      const currentStats = selectedPeriod === 'week' ? {
+        total: recordsThisWeek.length,
+        pending: recordsThisWeek.filter(r => (r.validationStatus || 'pending') === 'pending').length,
+        validated: recordsThisWeek.filter(r => (r.validationStatus || 'pending') === 'validated').length,
+        legalized: recordsThisWeek.filter(r => r.certificateStatus === 'issued' || r.certificateStatus === 'approved').length,
+        pregnancies: pregnanciesThisWeek,
+        births: birthsThisWeek,
+      } : {
+        total: recordsThisMonth.length,
+        pending: recordsThisMonth.filter(r => (r.validationStatus || 'pending') === 'pending').length,
+        validated: recordsThisMonth.filter(r => (r.validationStatus || 'pending') === 'validated').length,
+        legalized: recordsThisMonth.filter(r => r.certificateStatus === 'issued' || r.certificateStatus === 'approved').length,
+        pregnancies: pregnanciesThisMonth,
+        births: birthsThisMonth,
+      };
+
+      setStats({
+        total: currentStats.total,
+        pending: currentStats.pending,
+        validated: currentStats.validated,
+        legalized: currentStats.legalized,
+        pregnancies: currentStats.pregnancies,
+        births: currentStats.births,
+      });
+
+      // Cas récents (les 3 plus récents, tous statuts confondus)
+      const sortedRecords = allRecords
+        .sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        })
+        .slice(0, 3)
+        .map(record => {
+          // Distinguer pregnancies et births
+          const isPreg = isPregnancyRecord(record);
+          const name = isPreg
+            ? (record.motherFirstNames && record.motherLastName
+                ? `${record.motherFirstNames.join(' ')} ${record.motherLastName}`
+                : record.motherName || 'N/A')
+            : (record.childFirstNames && record.childLastName
+                ? `${record.childFirstNames.join(' ')} ${record.childLastName}`
+                : record.childName || 'N/A');
+
+          return {
+            id: record.firestoreId || record.id || 'N/A',
+            type: (isPreg ? 'pregnancy' : 'birth') as 'pregnancy' | 'birth',
+            name,
+            date: record.createdAt ? new Date(record.createdAt) : new Date(),
+            status: (record.validationStatus || 'pending') as 'pending' | 'validated' | 'rejected',
+          };
+        });
+
+      setRecentRecords(sortedRecords);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const currentStats = selectedPeriod === 'week' ? {
-    total: statsThisWeek.pregnancies + statsThisWeek.births,
-    pending: 5,
-    validated: 25,
-    legalized: 22,
-  } : {
-    total: globalStats.total,
-    pending: globalStats.pending,
-    validated: globalStats.validated,
-    legalized: globalStats.legalized,
+  const currentStats = {
+    total: stats.total,
+    pending: stats.pending,
+    validated: stats.validated,
+    legalized: stats.legalized,
   };
-
-  // Cas récents enregistrés (simulés) - Limité à 3 pour alléger
-  const recentRecords = [
-    {
-      id: 'PR-2025-001',
-      type: 'pregnancy' as const,
-      name: 'Marie Jean',
-      date: new Date('2025-01-28'),
-      status: 'pending',
-    },
-    {
-      id: 'BR-2025-001',
-      type: 'birth' as const,
-      name: 'Sophie Laurent',
-      date: new Date('2025-01-28'),
-      status: 'validated',
-    },
-    {
-      id: 'PR-2025-002',
-      type: 'pregnancy' as const,
-      name: 'Claire Martin',
-      date: new Date('2025-01-27'),
-      status: 'pending',
-    },
-  ];
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -93,12 +195,19 @@ export default function AdminDashboard() {
       case 'statistics':
         router.push('/(dashboard)/admin/statistics' as any);
         break;
+      case 'emergency':
+        router.push('/(dashboard)/admin/emergency' as any);
+        break;
     }
   };
 
   const handleNotificationPress = () => {
-    // TODO: Ouvrir les notifications
-    console.log('Ouvrir notifications');
+    console.log('Notification button pressed, navigating to emergency page');
+    try {
+      router.push('/(dashboard)/admin/emergency' as any);
+    } catch (error) {
+      console.error('Error navigating to emergency page:', error);
+    }
   };
 
   const handleSettingsPress = () => {
@@ -139,7 +248,8 @@ export default function AdminDashboard() {
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
-          isTablet && styles.scrollContentTablet
+          isTablet && styles.scrollContentTablet,
+          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -181,15 +291,36 @@ export default function AdminDashboard() {
             </ThemedView>
             <ThemedView variant="transparent" style={styles.headerActions}>
               <Pressable
-                style={styles.headerIconButton}
+                style={({ pressed }) => [
+                  styles.headerIconButton,
+                  pressed && { opacity: 0.7 }
+                ]}
                 onPress={handleNotificationPress}
+                accessibilityLabel="Signalements d'urgence"
+                accessibilityRole="button"
               >
                 <FontAwesome 
                   name="bell" 
                   size={isTablet ? 24 : 20} 
                   color="#fff" 
                 />
-                <View style={styles.notificationBadge} />
+                {emergencyCount > 0 && (
+                  <View 
+                    style={[
+                      styles.notificationBadge,
+                      { backgroundColor: theme.colors.error }
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <ThemedText 
+                      size="xs" 
+                      weight="bold"
+                      style={{ color: '#fff' }}
+                    >
+                      {emergencyCount > 99 ? '99+' : emergencyCount}
+                    </ThemedText>
+                  </View>
+                )}
               </Pressable>
               <Pressable
                 style={styles.headerIconButton}
@@ -325,6 +456,50 @@ export default function AdminDashboard() {
               {t('admin.dashboard.manageUsers') || 'Gérer Utilisateurs'}
             </ThemedText>
           </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionCard,
+              { backgroundColor: theme.colors.surface },
+              pressed && styles.actionCardPressed
+            ]}
+            onPress={() => handleQuickAction('emergency')}
+          >
+            <ThemedView 
+              variant="transparent"
+              style={StyleSheet.flatten([styles.actionIconCircle, { backgroundColor: theme.colors.error + '20' }])}
+            >
+              <FontAwesome 
+                name="exclamation-triangle" 
+                size={isTablet ? 36 : 28} 
+                color={theme.colors.error} 
+              />
+              {emergencyCount > 0 && (
+                <ThemedView 
+                  variant="transparent"
+                  style={[
+                    styles.emergencyBadge,
+                    { backgroundColor: theme.colors.error }
+                  ]}
+                >
+                  <ThemedText 
+                    size="xs" 
+                    weight="bold"
+                    style={{ color: '#fff' }}
+                  >
+                    {emergencyCount > 99 ? '99+' : emergencyCount}
+                  </ThemedText>
+                </ThemedView>
+              )}
+            </ThemedView>
+            <ThemedText 
+              size="base" 
+              weight="semibold"
+              style={styles.actionTitle}
+            >
+              Signalements d'urgence
+            </ThemedText>
+          </Pressable>
         </ThemedView>
 
         {/* 4️⃣ Carte de Statistiques Globales */}
@@ -367,9 +542,13 @@ export default function AdminDashboard() {
               <ThemedText size="sm" weight="medium" variant="secondary">
                 {t('admin.dashboard.totalRegistrations') || 'Total Enregistrements'}
               </ThemedText>
-              <ThemedText size="xl" weight="bold">
-                {currentStats.total}
-              </ThemedText>
+              {isLoading ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <ThemedText size="xl" weight="bold">
+                  {currentStats.total}
+                </ThemedText>
+              )}
             </ThemedView>
 
             {/* Barre de progression */}
@@ -378,7 +557,7 @@ export default function AdminDashboard() {
                 style={StyleSheet.flatten([
                   styles.progressSegment,
                   { 
-                    width: `${(currentStats.pending / currentStats.total) * 100}%`,
+                    width: `${currentStats.total > 0 ? (currentStats.pending / currentStats.total) * 100 : 0}%`,
                     backgroundColor: theme.colors.warning 
                   }
                 ])}
@@ -387,7 +566,7 @@ export default function AdminDashboard() {
                 style={StyleSheet.flatten([
                   styles.progressSegment,
                   { 
-                    width: `${(currentStats.validated / currentStats.total) * 100}%`,
+                    width: `${currentStats.total > 0 ? (currentStats.validated / currentStats.total) * 100 : 0}%`,
                     backgroundColor: theme.colors.success 
                   }
                 ])}
@@ -396,7 +575,7 @@ export default function AdminDashboard() {
                 style={StyleSheet.flatten([
                   styles.progressSegment,
                   { 
-                    width: `${(currentStats.legalized / currentStats.total) * 100}%`,
+                    width: `${currentStats.total > 0 ? (currentStats.legalized / currentStats.total) * 100 : 0}%`,
                     backgroundColor: theme.colors.secondary 
                   }
                 ])}
@@ -454,10 +633,25 @@ export default function AdminDashboard() {
             </Pressable>
           </ThemedView>
 
-          <FlatList
-            data={recentRecords}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item: record }) => (
+          {isLoading ? (
+            <ThemedView variant="transparent" style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ThemedText variant="secondary" size="sm" style={{ marginTop: 12 }}>
+                {t('common.loading') || 'Chargement...'}
+              </ThemedText>
+            </ThemedView>
+          ) : recentRecords.length === 0 ? (
+            <ThemedView variant="transparent" style={styles.emptyState}>
+              <FontAwesome name="inbox" size={48} color={theme.colors.textSecondary} />
+              <ThemedText variant="secondary" size="base" style={styles.emptyStateText}>
+                {t('admin.dashboard.noRecentRecords') || 'Aucun cas récent'}
+              </ThemedText>
+            </ThemedView>
+          ) : (
+            <FlatList
+              data={recentRecords}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item: record }) => (
               <Pressable
                 style={({ pressed }) => [
                   styles.recordCard,
@@ -531,18 +725,10 @@ export default function AdminDashboard() {
                 </ThemedView>
               </Pressable>
             )}
-            scrollEnabled={false}
-            nestedScrollEnabled={true}
-            contentContainerStyle={styles.recentRecordsList}
-          />
-
-          {recentRecords.length === 0 && (
-            <ThemedView variant="transparent" style={styles.emptyState}>
-              <FontAwesome name="inbox" size={48} color={theme.colors.textSecondary} />
-              <ThemedText variant="secondary" size="base" style={styles.emptyStateText}>
-                {t('admin.dashboard.noRecentRecords') || 'Aucun cas récent'}
-              </ThemedText>
-            </ThemedView>
+              scrollEnabled={false}
+              nestedScrollEnabled={true}
+              contentContainerStyle={styles.recentRecordsList}
+            />
           )}
         </ThemedCard>
       </ScrollView>
@@ -773,13 +959,13 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: 0,
-    paddingBottom: 100,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   scrollContentTablet: {
     paddingHorizontal: 0,
     maxWidth: '100%',
     alignSelf: 'stretch',
-    paddingBottom: 120,
+    // paddingBottom sera géré dynamiquement avec useSafeAreaInsets
   },
   header: {
     paddingHorizontal: 16,
@@ -833,12 +1019,16 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ff4444',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   titleSection: {
     flexDirection: 'row',
@@ -880,11 +1070,25 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
     marginBottom: 10,
   },
   actionTitle: {
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emergencyBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   statsCard: {
     marginBottom: 20,
@@ -1086,6 +1290,12 @@ const styles = StyleSheet.create({
   recordDate: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 12,
   },
   emptyState: {
     alignItems: 'center',
