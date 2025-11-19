@@ -1,7 +1,11 @@
 import { useColorScheme } from '@/components/useColorScheme';
 import { useLanguageStore } from '@/store/languageStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
+import { usePregnancyStore } from '@/store/pregnancyStore';
+import { useBirthStore } from '@/store/birthStore';
 import { ThemeProvider } from '@/theme/ThemeProvider';
+import { initDatabase } from '@/services/database/sqlite';
 import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform, StatusBar } from 'react-native';
@@ -135,16 +139,50 @@ export function AppProvider({ children }: AppProviderProps) {
   const [themeLoaded, setThemeLoaded] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>(systemColorScheme || 'light');
 
-  // Charger le thème et la langue sauvegardés au démarrage
+  // Charger le thème, la langue et initialiser la base de données au démarrage
+  const { initializeAuth } = useAuthStore();
+  const { loadPregnancies } = usePregnancyStore();
+  const { loadBirths } = useBirthStore();
+  
   useEffect(() => {
     const initialize = async () => {
+      try {
+        // Initialiser SQLite en premier
+        await initDatabase();
+        console.log('✅ Database initialized');
+      } catch (error) {
+        console.error('❌ Database initialization error:', error);
+      }
+      
+      try {
+        // Initialiser Firebase
+        await import('@/services/firebase/config');
+        console.log('✅ Firebase initialized');
+      } catch (error) {
+        console.error('❌ Firebase initialization error:', error);
+      }
+      
+      // Initialiser l'authentification (écouter les changements d'état)
+      initializeAuth();
+      console.log('✅ Auth listener initialized');
+      
+      // Charger les données depuis SQLite
+      try {
+        await loadPregnancies();
+        await loadBirths();
+        console.log('✅ Data loaded from SQLite');
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+      }
+      
+      // Charger le thème et la langue
       await loadTheme();
       await loadLanguage();
       await new Promise(resolve => setTimeout(resolve, 100));
       setThemeLoaded(true);
     };
     initialize();
-  }, [loadTheme, loadLanguage]);
+  }, [loadTheme, loadLanguage, initializeAuth, loadPregnancies, loadBirths]);
 
   // Déterminer le thème actuel
   useEffect(() => {
@@ -162,14 +200,8 @@ export function AppProvider({ children }: AppProviderProps) {
     <SafeAreaProvider>
       <ThemeProvider>
         <StatusBarHandler />
-        <SafeAreaView 
-          style={{ 
-            flex: 1, 
-            backgroundColor: windowBackgroundColor 
-          }}
-        >
-          {children}
-        </SafeAreaView>
+        {/* SafeAreaView est maintenant géré par ScreenContainer dans chaque écran */}
+        {children}
       </ThemeProvider>
     </SafeAreaProvider>
   );

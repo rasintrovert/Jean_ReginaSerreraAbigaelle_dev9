@@ -4,13 +4,14 @@ import {
   ThemedText,
   ThemedView
 } from '@/components/ThemedComponents';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Pressable } from 'react-native';
 
 export default function AgentDashboard() {
   const router = useRouter();
@@ -89,7 +90,7 @@ export default function AgentDashboard() {
   };
 
   return (
-    <ThemedView variant="background" style={styles.container}>
+    <ScreenContainer variant="background">
       <ScrollView 
         style={{ backgroundColor: 'transparent' }}
         contentContainerStyle={[
@@ -139,8 +140,11 @@ export default function AgentDashboard() {
           </ThemedView>
           
           <ThemedView variant="transparent" style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerIconButton}
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                pressed && { opacity: 0.7 }
+              ]}
               onPress={handleNotificationPress}
               accessibilityLabel={t('agent.profile.notifications')}
               accessibilityHint={t('agent.profile.notifications')}
@@ -150,9 +154,12 @@ export default function AgentDashboard() {
                 size={isTablet ? 24 : 20} 
                 color={theme.colors.textSecondary} 
               />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerIconButton}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                pressed && { opacity: 0.7 }
+              ]}
               onPress={handleSettingsPress}
               accessibilityLabel={t('agent.profile.tabs.settings')}
               accessibilityHint={t('agent.profile.tabs.settings')}
@@ -162,7 +169,7 @@ export default function AgentDashboard() {
                 size={isTablet ? 24 : 20} 
                 color="#fff" 
               />
-            </TouchableOpacity>
+            </Pressable>
           </ThemedView>
         </ThemedView>
 
@@ -195,8 +202,11 @@ export default function AgentDashboard() {
 
         {/* 3️⃣ Bloc des actions principales */}
         <ThemedView style={StyleSheet.flatten([styles.mainActionsContainer, { paddingHorizontal: 16 }])}>
-          <TouchableOpacity
-            style={{ ...styles.mainActionCard, backgroundColor: theme.colors.surface }}
+          <Pressable
+            style={({ pressed }) => [
+              { ...styles.mainActionCard, backgroundColor: theme.colors.surface },
+              pressed && { opacity: 0.7 }
+            ]}
             onPress={() => handleQuickAction('pregnancy')}
             accessibilityLabel={t('agent.dashboard.registerPregnancy')}
             accessibilityHint={t('agent.pregnancy.subtitle')}
@@ -215,10 +225,13 @@ export default function AgentDashboard() {
             >
               {t('agent.dashboard.registerPregnancy')}
             </ThemedText>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={{ ...styles.mainActionCard, backgroundColor: theme.colors.surface }}
+          <Pressable
+            style={({ pressed }) => [
+              { ...styles.mainActionCard, backgroundColor: theme.colors.surface },
+              pressed && { opacity: 0.7 }
+            ]}
             onPress={() => handleQuickAction('birth')}
             accessibilityLabel={t('agent.dashboard.registerBirth')}
             accessibilityHint={t('agent.birth.subtitle')}
@@ -237,12 +250,15 @@ export default function AgentDashboard() {
             >
               {t('agent.dashboard.registerBirth')}
             </ThemedText>
-          </TouchableOpacity>
+          </Pressable>
         </ThemedView>
 
         {/* 4️⃣ Bloc secondaire - Prèv Mwen yo */}
-        <TouchableOpacity
-          style={StyleSheet.flatten([{ ...styles.secondaryCard, backgroundColor: theme.colors.surface }, { marginHorizontal: 16 }])}
+        <Pressable
+          style={({ pressed }) => [
+            StyleSheet.flatten([{ ...styles.secondaryCard, backgroundColor: theme.colors.surface }, { marginHorizontal: 16 }]),
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={handleProofsPress}
           accessibilityLabel={t('agent.dashboard.myProofs')}
           accessibilityHint={t('agent.history.title')}
@@ -281,7 +297,7 @@ export default function AgentDashboard() {
               </ThemedText>
             </ThemedView>
           </ThemedView>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* 5️⃣ Bloc informatif / message d'aide */}
         <ThemedCard style={StyleSheet.flatten([styles.infoCard, { marginHorizontal: 16 }])}>
@@ -320,8 +336,11 @@ export default function AgentDashboard() {
 
       {/* 6️⃣ Barre de navigation inférieure */}
       <ThemedView style={{ ...styles.bottomNavigation, backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }}>
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('home')}
           accessibilityLabel={t('agent.navigation.home')}
           accessibilityHint={t('agent.navigation.home')}
@@ -338,10 +357,13 @@ export default function AgentDashboard() {
           >
             {t('agent.navigation.home')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('history')}
           accessibilityLabel={t('agent.navigation.history')}
           accessibilityHint={t('agent.navigation.history')}
@@ -359,10 +381,13 @@ export default function AgentDashboard() {
           >
             {t('agent.navigation.history')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItemCenter}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItemCenter,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('add')}
           accessibilityLabel={t('agent.navigation.add')}
           accessibilityHint={t('agent.navigation.add')}
@@ -381,10 +406,13 @@ export default function AgentDashboard() {
           >
             {t('agent.navigation.add')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('emergency')}
           accessibilityLabel={t('agent.navigation.emergency')}
           accessibilityHint={t('agent.navigation.emergency')}
@@ -401,10 +429,13 @@ export default function AgentDashboard() {
           >
             {t('agent.navigation.emergency')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('profile')}
           accessibilityLabel={t('agent.navigation.profile')}
           accessibilityHint={t('agent.navigation.profile')}
@@ -422,7 +453,7 @@ export default function AgentDashboard() {
           >
             {t('agent.navigation.profile')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
       </ThemedView>
 
       {/* Modal pour choisir le type d'enregistrement */}
@@ -450,8 +481,11 @@ export default function AgentDashboard() {
             </ThemedText>
             
             <ThemedView variant="transparent" style={styles.modalOptions}>
-              <TouchableOpacity
-                style={{ ...styles.modalOption, backgroundColor: theme.colors.background, borderColor: theme.colors.border }}
+              <Pressable
+                style={({ pressed }) => [
+                  { ...styles.modalOption, backgroundColor: theme.colors.background, borderColor: theme.colors.border },
+                  pressed && { opacity: 0.7 }
+                ]}
                 onPress={() => handleAddOption('pregnancy')}
                 accessibilityLabel={t('agent.addModal.registerPregnancy')}
                 accessibilityHint={t('agent.addModal.registerPregnancyDesc')}
@@ -479,10 +513,13 @@ export default function AgentDashboard() {
                     {t('agent.addModal.registerPregnancyDesc')}
                   </ThemedText>
                 </ThemedView>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
-                style={{ ...styles.modalOption, backgroundColor: theme.colors.background, borderColor: theme.colors.border }}
+              <Pressable
+                style={({ pressed }) => [
+                  { ...styles.modalOption, backgroundColor: theme.colors.background, borderColor: theme.colors.border },
+                  pressed && { opacity: 0.7 }
+                ]}
                 onPress={() => handleAddOption('birth')}
                 accessibilityLabel={t('agent.addModal.registerBirth')}
                 accessibilityHint={t('agent.addModal.registerBirthDesc')}
@@ -510,7 +547,7 @@ export default function AgentDashboard() {
                     {t('agent.addModal.registerBirthDesc')}
                   </ThemedText>
                 </ThemedView>
-              </TouchableOpacity>
+              </Pressable>
             </ThemedView>
 
             <ThemedButton
@@ -529,14 +566,11 @@ export default function AgentDashboard() {
           </ThemedView>
         </ThemedView>
       </Modal>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     padding: 0,
     paddingBottom: 100, // Espace pour la navigation inférieure

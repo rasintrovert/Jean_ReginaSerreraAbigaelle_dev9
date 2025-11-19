@@ -5,13 +5,18 @@ import {
   ThemedText,
   ThemedView
 } from '@/components/ThemedComponents';
+import { ScreenContainer } from '@/components/ScreenContainer';
+import { ProofDocument } from '@/components/ProofDocument';
+import { useOrientation } from '@/hooks/useOrientation';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { usePregnancyStore } from '@/store/pregnancyStore';
+import { useBirthStore } from '@/store/birthStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Alert, FlatList, Modal, StyleSheet, Pressable } from 'react-native';
 
 // Types pour les données
 interface Proof {
@@ -19,59 +24,93 @@ interface Proof {
   type: 'pregnancy' | 'birth';
   referenceNumber: string;
   generationDate: string;
-  agentName: string;
+  personName: string; // Nom de la personne concernée (mère pour grossesse, enfant pour naissance)
   status: 'valid' | 'pending';
+  createdAt: string; // Date originale pour le tri
 }
 
 export default function AgentHistory() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
+  const { isLandscape } = useOrientation();
   const t = useTranslation();
+  const { pregnancies, isLoading: isLoadingPregnancies } = usePregnancyStore();
+  const { births, isLoading: isLoadingBirths } = useBirthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'pregnancy' | 'birth'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'valid' | 'pending'>('all');
+  const [showProofModal, setShowProofModal] = useState(false);
+  const [selectedProof, setSelectedProof] = useState<Proof | null>(null);
 
-  // Données simulées - Preuves générées
-  const mockProofs: Proof[] = [
-    {
-      id: '1',
-      type: 'birth',
-      referenceNumber: 'INPR-2025-01-15-001',
-      generationDate: '15/01/2025',
-      agentName: 'Jean Dupont',
-      status: 'valid',
-    },
-    {
-      id: '2',
-      type: 'pregnancy',
-      referenceNumber: 'INPR-2025-01-14-002',
-      generationDate: '14/01/2025',
-      agentName: 'Jean Dupont',
-      status: 'valid',
-    },
-    {
-      id: '3',
-      type: 'birth',
-      referenceNumber: 'INPR-2025-01-13-003',
-      generationDate: '13/01/2025',
-      agentName: 'Jean Dupont',
-      status: 'pending',
-    },
-    {
-      id: '4',
-      type: 'pregnancy',
-      referenceNumber: 'INPR-2025-01-12-004',
-      generationDate: '12/01/2025',
-      agentName: 'Jean Dupont',
-      status: 'valid',
-    },
-  ];
+  const isLoading = isLoadingPregnancies || isLoadingBirths;
 
-  const filteredProofs = mockProofs.filter(proof => {
+  // Transformer les données des stores en format Proof
+  const proofs: Proof[] = useMemo(() => {
+    const allProofs: Proof[] = [];
+
+    // Ajouter les grossesses
+    pregnancies.forEach((pregnancy) => {
+      try {
+        const date = new Date(pregnancy.createdAt);
+        const formattedDate = isNaN(date.getTime()) 
+          ? new Date().toLocaleDateString('fr-FR')
+          : date.toLocaleDateString('fr-FR');
+        
+        allProofs.push({
+          id: pregnancy.id,
+          type: 'pregnancy' as const,
+          referenceNumber: `PREGN-${pregnancy.id.slice(-8)}`,
+          generationDate: formattedDate,
+          personName: pregnancy.motherName || 'N/A',
+          status: pregnancy.status === 'synced' ? 'valid' : 'pending',
+          createdAt: pregnancy.createdAt, // Garder la date originale pour le tri
+        });
+      } catch (error) {
+        console.error('Error processing pregnancy:', error);
+      }
+    });
+
+    // Ajouter les naissances
+    births.forEach((birth) => {
+      try {
+        const date = new Date(birth.createdAt);
+        const formattedDate = isNaN(date.getTime()) 
+          ? new Date().toLocaleDateString('fr-FR')
+          : date.toLocaleDateString('fr-FR');
+        
+        // Pour les naissances, utiliser le nom complet de l'enfant (prénom + nom)
+        const childFullName = birth.childFirstName && birth.childName 
+          ? `${birth.childFirstName} ${birth.childName}`.trim()
+          : birth.childName || birth.childFirstName || 'N/A';
+        
+        allProofs.push({
+          id: birth.id,
+          type: 'birth' as const,
+          referenceNumber: `BIRTH-${birth.id.slice(-8)}`,
+          generationDate: formattedDate,
+          personName: childFullName,
+          status: birth.synced ? 'valid' : 'pending',
+          createdAt: birth.createdAt, // Garder la date originale pour le tri
+        });
+      } catch (error) {
+        console.error('Error processing birth:', error);
+      }
+    });
+
+    // Trier par date (plus récent en premier) - utiliser createdAt directement
+    return allProofs.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // Plus récent en premier
+    });
+  }, [pregnancies, births]);
+
+  const filteredProofs = proofs.filter(proof => {
     const matchesSearch = proof.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         proof.generationDate.toLowerCase().includes(searchQuery.toLowerCase());
+                         proof.generationDate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         proof.personName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = filterType === 'all' || proof.type === filterType;
     const matchesStatus = filterStatus === 'all' || proof.status === filterStatus;
     
@@ -107,24 +146,35 @@ export default function AgentHistory() {
   };
 
   const handleViewProof = (proof: Proof) => {
-    Alert.alert(
-      t('agent.history.title'),
-      `${t('agent.history.filterType')}: ${getTypeLabel(proof.type)}\n` +
-      `${t('agent.history.reference')}: ${proof.referenceNumber}\n` +
-      `${t('agent.history.generationDate')}: ${proof.generationDate}\n` +
-      `${t('agent.history.filterStatus')}: ${getStatusLabel(proof.status)}`,
-      [
-        { text: t('common.close'), style: 'cancel' },
-        { 
-          text: t('common.save'), 
-          onPress: () => {
-            // TODO: Télécharger la preuve
-            console.log('Télécharger preuve:', proof.id);
-            Alert.alert(t('common.success'), t('agent.history.viewProof'));
-          }
-        }
-      ]
-    );
+    setSelectedProof(proof);
+    setShowProofModal(true);
+  };
+
+  const getProofData = (proof: Proof) => {
+    if (proof.type === 'pregnancy') {
+      const pregnancy = pregnancies.find(p => p.id === proof.id);
+      return {
+        pregnancyData: {
+          motherName: pregnancy?.motherName || proof.personName,
+          location: pregnancy?.location,
+          estimatedDeliveryDate: pregnancy?.lastMenstruationDate 
+            ? new Date(pregnancy.lastMenstruationDate).toLocaleDateString('fr-FR')
+            : undefined,
+        },
+      };
+    } else {
+      const birth = births.find(b => b.id === proof.id);
+      return {
+        birthData: {
+          childName: birth?.childName || '',
+          childFirstName: birth?.childFirstName || '',
+          birthDate: birth?.birthDate || '',
+          birthPlace: birth?.birthPlace,
+          motherName: birth?.motherName || '',
+          fatherName: birth?.fatherName,
+        },
+      };
+    }
   };
 
   const handleFilterApply = () => {
@@ -132,14 +182,17 @@ export default function AgentHistory() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       {/* 1️⃣ En-tête et barre de navigation supérieure */}
       <ThemedView 
         variant="transparent"
         style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}
       >
-        <TouchableOpacity
-          style={styles.backButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={handleBackPress}
           accessibilityLabel={t('common.back')}
           accessibilityHint={t('common.back')}
@@ -149,7 +202,7 @@ export default function AgentHistory() {
             size={isTablet ? 24 : 20} 
             color="#fff" 
           />
-        </TouchableOpacity>
+        </Pressable>
         
         <ThemedText 
           size="lg" 
@@ -159,8 +212,11 @@ export default function AgentHistory() {
           {t('agent.history.title')}
         </ThemedText>
         
-        <TouchableOpacity
-          style={styles.filterButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.filterButton,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={handleFilterPress}
           accessibilityLabel={t('common.filter')}
           accessibilityHint={t('agent.history.filters')}
@@ -170,74 +226,69 @@ export default function AgentHistory() {
             size={isTablet ? 24 : 20} 
             color="#fff" 
           />
-        </TouchableOpacity>
+        </Pressable>
       </ThemedView>
 
-      <ScrollView 
-        contentContainerStyle={[
-          styles.scrollContent,
-          isTablet && styles.scrollContentTablet
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 2️⃣ Zone de recherche */}
-        <ThemedCard style={styles.searchCard}>
-          <ThemedView style={{ ...styles.searchContainer, backgroundColor: theme.colors.background }}>
-            <FontAwesome 
-              name="search" 
-              size={16} 
-              color={theme.colors.textSecondary} 
-              style={styles.searchIcon}
-            />
-            <ThemedInput
-              placeholder={t('agent.history.searchPlaceholder')}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              size="md"
-              style={styles.searchInput}
-              accessibilityLabel={t('common.search')}
-              accessibilityHint={t('agent.history.searchHint')}
-            />
-          </ThemedView>
-        </ThemedCard>
+      {/* 2️⃣ Zone de recherche */}
+      <ThemedCard style={styles.searchCard}>
+        <ThemedView style={{ ...styles.searchContainer, backgroundColor: theme.colors.background }}>
+          <FontAwesome 
+            name="search" 
+            size={16} 
+            color={theme.colors.textSecondary} 
+            style={styles.searchIcon}
+          />
+          <ThemedInput
+            placeholder={t('agent.history.searchPlaceholder')}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            size="md"
+            style={styles.searchInput}
+            accessibilityLabel={t('common.search')}
+            accessibilityHint={t('agent.history.searchHint')}
+          />
+        </ThemedView>
+      </ThemedCard>
 
-        {/* 3️⃣ Section de liste - Aperçu des preuves générées */}
-        <ThemedView style={styles.proofsSection}>
-          <ThemedText 
-            size="base" 
-            weight="semibold" 
-            style={styles.sectionTitle}
-          >
-            {t('agent.history.title')} ({filteredProofs.length})
-          </ThemedText>
-          
-          {filteredProofs.length === 0 ? (
-            <ThemedCard style={styles.emptyCard}>
-              <FontAwesome 
-                name="file-text-o" 
-                size={48} 
-                color={theme.colors.textSecondary} 
-                style={styles.emptyIcon}
-              />
-              <ThemedText 
-                variant="secondary" 
-                size="base"
-                style={styles.emptyText}
-              >
-                {t('agent.history.noProofs')}
-              </ThemedText>
-              <ThemedText 
-                variant="secondary" 
-                size="sm"
-                style={styles.emptySubtext}
-              >
-                {t('agent.history.searchHint')}
-              </ThemedText>
-            </ThemedCard>
-          ) : (
-            filteredProofs.map((proof) => (
+      {/* 3️⃣ Section de liste - Aperçu des preuves générées avec FlatList */}
+      <ThemedView style={styles.proofsSection}>
+        <ThemedText 
+          size="base" 
+          weight="semibold" 
+          style={styles.sectionTitle}
+        >
+          {t('agent.history.title')} ({filteredProofs.length})
+        </ThemedText>
+        
+        {filteredProofs.length === 0 ? (
+          <ThemedCard style={styles.emptyCard}>
+            <FontAwesome 
+              name="file-text-o" 
+              size={48} 
+              color={theme.colors.textSecondary} 
+              style={styles.emptyIcon}
+            />
+            <ThemedText 
+              variant="secondary" 
+              size="base"
+              style={styles.emptyText}
+            >
+              {t('agent.history.noProofs')}
+            </ThemedText>
+            <ThemedText 
+              variant="secondary" 
+              size="sm"
+              style={styles.emptySubtext}
+            >
+              {t('agent.history.searchHint')}
+            </ThemedText>
+          </ThemedCard>
+        ) : (
+          <FlatList
+            data={filteredProofs}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item: proof }) => (
               <ThemedCard 
-                key={proof.id} 
                 style={styles.proofCard}
               >
                 {/* a) En-tête de la carte */}
@@ -315,7 +366,10 @@ export default function AgentHistory() {
                       size="sm"
                       style={styles.infoText}
                     >
-                      {t('agent.history.agent')}: {proof.agentName}
+                      {proof.type === 'pregnancy' 
+                        ? `Mère: ${proof.personName}`
+                        : `Enfant: ${proof.personName}`
+                      }
                     </ThemedText>
                   </ThemedView>
                 </ThemedView>
@@ -337,10 +391,32 @@ export default function AgentHistory() {
                   </ThemedButton>
                 </ThemedView>
               </ThemedCard>
-            ))
-          )}
-        </ThemedView>
-      </ScrollView>
+            )}
+            contentContainerStyle={[
+              styles.flatListContent,
+              isTablet && styles.flatListContentTablet
+            ]}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <ThemedCard style={styles.emptyCard}>
+                <FontAwesome 
+                  name="file-text-o" 
+                  size={48} 
+                  color={theme.colors.textSecondary} 
+                  style={styles.emptyIcon}
+                />
+                <ThemedText 
+                  variant="secondary" 
+                  size="base"
+                  style={styles.emptyText}
+                >
+                  {t('agent.history.noProofs')}
+                </ThemedText>
+              </ThemedCard>
+            }
+          />
+        )}
+      </ThemedView>
 
       {/* Modal de filtrage */}
       <Modal
@@ -451,23 +527,55 @@ export default function AgentHistory() {
                 </ThemedText>
               </ThemedButton>
             </ThemedView>
+            </ThemedView>
           </ThemedView>
-        </ThemedView>
+        </Modal>
+
+      {/* Modal pour afficher le document professionnel */}
+      <Modal
+        visible={showProofModal}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setShowProofModal(false)}
+      >
+        <ScreenContainer variant="background">
+          <ThemedView style={styles.proofModalHeader}>
+            <Pressable
+              onPress={() => setShowProofModal(false)}
+              style={styles.proofModalCloseButton}
+            >
+              <FontAwesome name="times" size={24} color={theme.colors.text} />
+            </Pressable>
+            <ThemedText size="lg" weight="bold" style={styles.proofModalTitle}>
+              {selectedProof ? getTypeLabel(selectedProof.type) : ''}
+            </ThemedText>
+            <ThemedView style={{ width: 40 }} />
+          </ThemedView>
+          
+          {selectedProof && (
+            <ProofDocument
+              type={selectedProof.type}
+              referenceNumber={selectedProof.referenceNumber}
+              generationDate={selectedProof.generationDate}
+              personName={selectedProof.personName}
+              status={selectedProof.status}
+              {...getProofData(selectedProof)}
+            />
+          )}
+        </ScreenContainer>
       </Modal>
-    </ThemedView>
-  );
-}
+      </ScreenContainer>
+    );
+  }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
+  flatListContent: {
     padding: 16,
+    paddingBottom: 100, // Espace pour la navigation inférieure
   },
-  scrollContentTablet: {
-    paddingHorizontal: 32,
-    maxWidth: 800,
+  flatListContentTablet: {
+    paddingHorizontal: 24,
+    maxWidth: 600,
     alignSelf: 'center',
   },
   
@@ -667,6 +775,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  
+  // Modal de preuve
+  proofModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  proofModalCloseButton: {
+    padding: 8,
+  },
+  proofModalTitle: {
+    flex: 1,
+    textAlign: 'center',
   },
 });
 

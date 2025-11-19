@@ -167,7 +167,7 @@ const language = useLanguageStore.getState().language;
 const t = createUseTranslation(language);
 
 export const loginSchema = z.object({
-  username: z.string().min(1, t('validation.required')),
+  email: z.string().email(t('validation.email')),
   password: z.string().min(6, t('validation.minLength', { min: 6 })),
 });
 ```

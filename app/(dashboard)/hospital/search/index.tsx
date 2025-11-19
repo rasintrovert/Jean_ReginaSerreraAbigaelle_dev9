@@ -1,3 +1,4 @@
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedInput,
@@ -21,7 +22,7 @@ export default function HospitalSearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       {/* Header */}
       <ThemedView 
         variant="transparent"
@@ -98,14 +99,11 @@ export default function HospitalSearchScreen() {
           </ThemedCard>
         )}
       </ScrollView>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import { PressableButton } from '@/components/PressableButton';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedInput,
@@ -7,6 +8,7 @@ import {
 } from '@/components/ThemedComponents';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +16,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 // Schéma de validation pour le mot de passe
@@ -33,6 +36,7 @@ export default function AgentProfile() {
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,6 +78,8 @@ export default function AgentProfile() {
     }
   };
 
+  const { logout } = useAuthStore();
+  
   const handleLogout = () => {
     Alert.alert(
       t('agent.profile.logout'),
@@ -83,9 +89,14 @@ export default function AgentProfile() {
         { 
           text: t('agent.profile.logout'), 
           style: 'destructive' as const,
-          onPress: () => {
-            // TODO: Implémenter la déconnexion
-            router.replace('/(auth)/login' as any);
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace('/(auth)/login' as any);
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert(t('common.error'), t('errors.generic'));
+            }
           }
         },
       ]
@@ -129,11 +140,17 @@ export default function AgentProfile() {
   ];
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       {/* Header */}
       <ThemedView 
         variant="transparent"
-        style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}
+        style={StyleSheet.flatten([
+          styles.header, 
+          { 
+            backgroundColor: theme.colors.primary,
+            paddingTop: Math.max(insets.top, 16),
+          }
+        ])}
       >
         <Pressable
           onPress={() => router.back()}
@@ -386,14 +403,11 @@ export default function AgentProfile() {
           </ThemedCard>
         </View>
       </Modal>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

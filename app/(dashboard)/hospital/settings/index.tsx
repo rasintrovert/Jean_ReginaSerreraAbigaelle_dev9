@@ -1,3 +1,4 @@
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedText,
@@ -13,12 +14,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, Switch, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HospitalSettingsScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguageStore();
   const { appTheme, setAppTheme } = useThemeStore();
 
@@ -50,10 +53,16 @@ export default function HospitalSettingsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       <ThemedView 
         variant="transparent"
-        style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}
+        style={StyleSheet.flatten([
+          styles.header, 
+          { 
+            backgroundColor: theme.colors.primary,
+            paddingTop: Math.max(insets.top, 16),
+          }
+        ])}
       >
         <Pressable
           onPress={() => router.back()}
@@ -384,14 +393,11 @@ export default function HospitalSettingsScreen() {
           </PressableButton>
         </ThemedCard>
       </ScrollView>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

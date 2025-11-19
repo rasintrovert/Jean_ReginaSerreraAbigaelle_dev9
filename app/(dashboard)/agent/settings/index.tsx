@@ -1,4 +1,5 @@
 import { PressableButton } from '@/components/PressableButton';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedText,
@@ -13,12 +14,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguageStore();
   const { appTheme, setAppTheme } = useThemeStore();
 
@@ -54,11 +57,17 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       {/* Header */}
       <ThemedView 
         variant="transparent"
-        style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}
+        style={StyleSheet.flatten([
+          styles.header, 
+          { 
+            backgroundColor: theme.colors.primary,
+            paddingTop: Math.max(insets.top, 16),
+          }
+        ])}
       >
         <Pressable
           onPress={() => router.back()}
@@ -404,14 +413,11 @@ export default function SettingsScreen() {
           </PressableButton>
         </ThemedCard>
       </ScrollView>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

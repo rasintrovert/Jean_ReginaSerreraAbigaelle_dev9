@@ -1,5 +1,6 @@
 import { Text, View, useThemeColor } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { loginSchema } from '@/utils/validation';
@@ -8,18 +9,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 type LoginFormData = {
-  username: string;
+  email: string;
   password: string;
-  role?: 'agent' | 'admin' | 'validator' | 'hospital';
+  role?: 'agent' | 'admin' | 'hospital';
 };
 
 const ROLES: { value: LoginFormData['role']; label: string; labelKreyol: string }[] = [
   { value: 'agent', label: 'Agent de terrain', labelKreyol: 'Ajan Teren' },
   { value: 'admin', label: 'Administrateur', labelKreyol: 'Administratè' },
-  { value: 'validator', label: 'Validateur', labelKreyol: 'Validatè' },
   { value: 'hospital', label: 'Hôpital', labelKreyol: 'Lopital' },
 ];
 
@@ -30,8 +30,9 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<LoginFormData['role'] | ''>('');
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, error, clearError } = useAuthStore();
   const { appTheme, setAppTheme, loadTheme } = useThemeStore();
+  const t = useTranslation();
 
   // Charger le thème sauvegardé au démarrage
   useEffect(() => {
@@ -67,17 +68,23 @@ export default function LoginScreen() {
   const onSubmit = async (data: any) => {
     if (!selectedRole) return;
     
+    clearError(); // Effacer les erreurs précédentes
+    
     try {
       await login({ 
-        email: data.username,
+        email: data.email,
         password: data.password 
       });
       
-      // Rediriger vers le dashboard approprié selon le rôle
-      router.replace(`/${selectedRole}` as any);
+      // Rediriger vers le dashboard approprié selon le rôle de l'utilisateur connecté
+      // Le rôle vient maintenant du profil utilisateur dans Firestore
+      const { user } = useAuthStore.getState();
+      if (user) {
+        router.replace(`/(dashboard)/${user.role}` as any);
+      }
     } catch (error) {
       console.error('Login error:', error);
-      // TODO: Afficher message d'erreur
+      // L'erreur est déjà gérée dans le store et affichée via la variable `error`
     }
   };
 
@@ -87,8 +94,8 @@ export default function LoginScreen() {
     <View style={[styles.container, { backgroundColor }]}>
       {/* Theme Selector Panel - Vertical Floating Icons */}
       <View style={styles.themePanel}>
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.themePanelButton,
             appTheme === 'light' && styles.themePanelButtonActive,
             { 
@@ -104,6 +111,7 @@ export default function LoginScreen() {
                 : (currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent'),
               borderWidth: appTheme === 'light' ? 2 : 0,
               borderColor: appTheme === 'light' ? tintColor : 'transparent',
+              opacity: pressed ? 0.7 : 1,
             }
           ]}
           onPress={() => setAppTheme('light')}
@@ -113,9 +121,9 @@ export default function LoginScreen() {
             size={appTheme === 'light' ? 24 : 22} 
             color={appTheme === 'light' ? tintColor : (currentTheme === 'dark' ? '#fff' : iconColor)} 
           />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
             styles.themePanelButton,
             appTheme === 'system' && styles.themePanelButtonActive,
             { 
@@ -131,6 +139,7 @@ export default function LoginScreen() {
                 : (currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent'),
               borderWidth: appTheme === 'system' ? 2 : 0,
               borderColor: appTheme === 'system' ? tintColor : 'transparent',
+              opacity: pressed ? 0.7 : 1,
             }
           ]}
           onPress={() => setAppTheme('system')}
@@ -140,9 +149,9 @@ export default function LoginScreen() {
             size={appTheme === 'system' ? 24 : 22} 
             color={appTheme === 'system' ? tintColor : (currentTheme === 'dark' ? '#fff' : iconColor)} 
           />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
             styles.themePanelButton,
             appTheme === 'dark' && styles.themePanelButtonActive,
             { 
@@ -158,6 +167,7 @@ export default function LoginScreen() {
                 : (currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent'),
               borderWidth: appTheme === 'dark' ? 2 : 0,
               borderColor: appTheme === 'dark' ? tintColor : 'transparent',
+              opacity: pressed ? 0.7 : 1,
             }
           ]}
           onPress={() => setAppTheme('dark')}
@@ -167,7 +177,7 @@ export default function LoginScreen() {
             size={appTheme === 'dark' ? 24 : 22} 
             color={appTheme === 'dark' ? tintColor : (currentTheme === 'dark' ? '#fff' : iconColor)} 
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -191,31 +201,33 @@ export default function LoginScreen() {
 
         {/* Formulaire */}
         <View style={styles.form}>
-          {/* Username */}
+          {/* Email */}
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: textColor }]}>
-              {isKreyol ? 'Non Itilizatè' : 'Nom d\'utilisateur'}
+              {isKreyol ? 'Imèl' : 'Email'}
             </Text>
             <View style={[styles.inputWrapper, { borderColor, backgroundColor: inputBackgroundColor }]}>
-              <FontAwesome name="user" size={20} color={iconColor} style={styles.inputIcon} />
+              <FontAwesome name="envelope" size={20} color={iconColor} style={styles.inputIcon} />
               <Controller
                 control={control}
-                name="username"
+                name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     style={[styles.input, { color: textColor }]}
-                    placeholder={isKreyol ? 'Non Itilizatè' : 'Nom d\'utilisateur'}
+                    placeholder={isKreyol ? 'imel@example.com' : 'email@example.com'}
                     placeholderTextColor={placeholderColor}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
                     autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
                   />
                 )}
               />
             </View>
-            {errors.username && (
-              <Text style={styles.errorText}>{errors.username.message}</Text>
+            {errors.email && (
+              <Text style={styles.errorText}>{errors.email.message}</Text>
             )}
           </View>
 
@@ -242,16 +254,19 @@ export default function LoginScreen() {
                   />
                 )}
               />
-              <TouchableOpacity
+              <Pressable
                 onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
+                style={({ pressed }) => [
+                  styles.eyeIcon,
+                  pressed && { opacity: 0.7 }
+                ]}
               >
                 <FontAwesome
                   name={showPassword ? 'eye' : 'eye-slash'}
                   size={20}
                   color={iconColor}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
             {errors.password && (
               <Text style={styles.errorText}>{errors.password.message}</Text>
@@ -263,8 +278,12 @@ export default function LoginScreen() {
             <Text style={[styles.label, { color: textColor }]}>
               {isKreyol ? 'Wòl' : 'Rôle'}
             </Text>
-            <TouchableOpacity
-              style={[styles.inputWrapper, { borderColor, backgroundColor: inputBackgroundColor }]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.inputWrapper, 
+                { borderColor, backgroundColor: inputBackgroundColor },
+                pressed && { opacity: 0.7 }
+              ]}
               onPress={() => setShowRoleDropdown(!showRoleDropdown)}
             >
               <Text
@@ -285,16 +304,17 @@ export default function LoginScreen() {
                 color={iconColor}
                 style={{ transform: [{ rotate: showRoleDropdown ? '180deg' : '0deg' }] }}
               />
-            </TouchableOpacity>
+            </Pressable>
             {showRoleDropdown && (
               <View style={[styles.dropdown, { borderColor, backgroundColor: inputBackgroundColor }]}>
                 {ROLES.map((role) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={role.value}
-                    style={[
+                    style={({ pressed }) => [
                       styles.dropdownItem,
                       { borderBottomColor: borderColor },
                       selectedRole === role.value && { backgroundColor: tintColor + '20' },
+                      pressed && { opacity: 0.7 }
                     ]}
                     onPress={() => {
                       setSelectedRole(role.value);
@@ -310,36 +330,50 @@ export default function LoginScreen() {
                     >
                       {isKreyol ? role.labelKreyol : role.label}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             )}
           </View>
 
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>
+                {t(error) || t('errors.auth.default')}
+              </Text>
+            </View>
+          )}
+
           {/* Login Button */}
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.loginButton, 
               { backgroundColor: buttonBackgroundColor },
-              isLoading && styles.loginButtonDisabled
+              isLoading && styles.loginButtonDisabled,
+              pressed && !isLoading && selectedRole && { opacity: 0.7 }
             ]}
             onPress={handleSubmit(onSubmit)}
             disabled={isLoading || !selectedRole}
           >
             <Text style={[styles.loginButtonText, { color: buttonTextColor }]}>
-              {isKreyol ? 'Konekte' : 'Se connecter'}
+              {isLoading 
+                ? (isKreyol ? 'Konekte...' : 'Connexion...')
+                : (isKreyol ? 'Konekte' : 'Se connecter')
+              }
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Language Selector */}
         <View style={styles.languageContainer}>
           <FontAwesome name="globe" size={20} color={iconColor} />
           <View style={[styles.languageButtons, { borderColor }]}>
-            <TouchableOpacity
-              style={[
+            <Pressable
+              style={({ pressed }) => [
                 styles.languageButton, 
-                { backgroundColor: language === 'kreyol' ? languageButtonActiveBg : languageButtonInactiveBg }
+                { backgroundColor: language === 'kreyol' ? languageButtonActiveBg : languageButtonInactiveBg },
+                pressed && { opacity: 0.7 }
               ]}
               onPress={() => setLanguage('kreyol')}
             >
@@ -349,11 +383,12 @@ export default function LoginScreen() {
               ]}>
                 Kreyòl
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
                 styles.languageButton, 
-                { backgroundColor: language === 'francais' ? languageButtonActiveBg : languageButtonInactiveBg }
+                { backgroundColor: language === 'francais' ? languageButtonActiveBg : languageButtonInactiveBg },
+                pressed && { opacity: 0.7 }
               ]}
               onPress={() => setLanguage('francais')}
             >
@@ -363,7 +398,7 @@ export default function LoginScreen() {
               ]}>
                 Français
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -556,5 +591,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4,
+  },
+  errorContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ff4444',
   },
 });

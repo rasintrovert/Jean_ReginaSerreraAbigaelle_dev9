@@ -1,4 +1,5 @@
 import { PressableButton } from '@/components/PressableButton';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedInput,
@@ -14,6 +15,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 // Schéma de validation pour l'urgence
@@ -32,6 +34,7 @@ export default function EmergencyScreen() {
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [isSending, setIsSending] = useState(false);
   const [selectedUrgency, setSelectedUrgency] = useState<'low' | 'medium' | 'high' | 'critical' | ''>('');
   const [showCallModal, setShowCallModal] = useState(false);
@@ -137,9 +140,15 @@ export default function EmergencyScreen() {
   ];
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       {/* Header */}
-      <ThemedView style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}>
+      <ThemedView style={StyleSheet.flatten([
+        styles.header, 
+        { 
+          backgroundColor: theme.colors.primary,
+          paddingTop: Math.max(insets.top, 16),
+        }
+      ])}>
         <Pressable
           onPress={() => router.back()}
           style={styles.backButton}
@@ -574,14 +583,11 @@ export default function EmergencyScreen() {
           </ThemedCard>
         </View>
       </Modal>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

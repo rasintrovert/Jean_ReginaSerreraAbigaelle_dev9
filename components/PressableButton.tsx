@@ -1,29 +1,39 @@
 import { useTheme } from '@/theme';
 import { useThemeContext } from '@/theme/ThemeProvider';
-import { Pressable, PressableProps, StyleSheet, ViewStyle } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import { Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { ThemedText } from './ThemedComponents';
 
 interface PressableButtonProps extends Omit<PressableProps, 'style'> {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  label?: string;
+  icon?: string;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
+  labelStyle?: TextStyle;
 }
 
 export function PressableButton({
   children,
+  label,
+  icon,
   variant = 'primary',
   size = 'md',
   fullWidth = false,
   disabled = false,
   accessibilityLabel,
   style,
+  labelStyle,
   ...props
 }: PressableButtonProps) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  
+  // Utiliser label si fourni, sinon children
+  const buttonContent = label || children;
 
   const getButtonStyles = (): ViewStyle => {
     const baseStyle: ViewStyle = {
@@ -121,6 +131,9 @@ export function PressableButton({
     }
   };
 
+  const iconSize = size === 'sm' ? 14 : size === 'md' ? 16 : 18;
+  const iconColor = getTextColor();
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -129,17 +142,27 @@ export function PressableButton({
         style,
       ]}
       disabled={disabled}
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={accessibilityLabel || label}
       accessibilityRole="button"
       {...props}
     >
-      <ThemedText
-        size={getTextSize()}
-        weight="semibold"
-        style={{ color: getTextColor() }}
-      >
-        {children}
-      </ThemedText>
+      {icon && (
+        <FontAwesome 
+          name={icon as any} 
+          size={iconSize} 
+          color={iconColor} 
+          style={buttonContent ? styles.iconWithText : undefined}
+        />
+      )}
+      {buttonContent && (
+        <ThemedText
+          size={getTextSize()}
+          weight="semibold"
+          style={StyleSheet.flatten([{ color: getTextColor() }, labelStyle])}
+        >
+          {buttonContent}
+        </ThemedText>
+      )}
     </Pressable>
   );
 }
@@ -147,6 +170,9 @@ export function PressableButton({
 const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
+  },
+  iconWithText: {
+    marginRight: 6,
   },
 });
 

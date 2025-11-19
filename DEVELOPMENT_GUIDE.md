@@ -11,9 +11,8 @@
 
 ### 2. Dashboards par Rôle
 - ✅ **Agent** : `/agent/` avec tabs pregnancy et birth
-- ✅ **Admin** : `/admin/` avec section certificates
+- ✅ **Admin** : `/admin/` avec section certificates et validation
 - ✅ **Hospital** : `/hospital/` avec pregnancy et birth
-- ✅ **Validator** : `/validator/` avec file de validation
 
 ### 3. Stores Zustand (État Global)
 - ✅ `store/authStore.ts` - Authentification

@@ -1,3 +1,4 @@
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedText,
@@ -11,6 +12,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'faq' | 'guide' | 'contact';
 
@@ -19,6 +21,7 @@ export default function HospitalHelpScreen() {
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>('faq');
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set());
 
@@ -254,10 +257,16 @@ export default function HospitalHelpScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       <ThemedView 
         variant="transparent"
-        style={StyleSheet.flatten([styles.header, { backgroundColor: theme.colors.primary }])}
+        style={StyleSheet.flatten([
+          styles.header, 
+          { 
+            backgroundColor: theme.colors.primary,
+            paddingTop: Math.max(insets.top, 16),
+          }
+        ])}
       >
         <Pressable
           onPress={() => router.back()}
@@ -377,14 +386,11 @@ export default function HospitalHelpScreen() {
         {activeTab === 'guide' && renderGuide()}
         {activeTab === 'contact' && renderContact()}
       </ScrollView>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,3 +1,4 @@
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedText,
@@ -11,7 +12,8 @@ import { format, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'all' | 'pregnancy' | 'birth';
 type PeriodFilter = 'thisWeek' | 'thisMonth' | 'lastMonth';
@@ -33,6 +35,7 @@ export default function HospitalHistoryScreen() {
   const theme = useTheme();
   const { isTablet } = useResponsive();
   const t = useTranslation();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('thisWeek');
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,9 +139,31 @@ export default function HospitalHistoryScreen() {
     }
   };
 
+  // Types pour FlatList avec sections
+  type ListItem = 
+    | { type: 'section-header'; title: string; id: string }
+    | { type: 'record'; record: Record; id: string };
+
+  // Créer une liste combinée pour l'onglet "all"
+  const getAllRecordsList = (): ListItem[] => {
+    const items: ListItem[] = [];
+    if (pregnancyRecords.length > 0) {
+      items.push({ type: 'section-header', title: t('hospital.history.pregnancies'), id: 'pregnancy-header' });
+      pregnancyRecords.forEach(record => {
+        items.push({ type: 'record', record, id: `pregnancy-${record.id}` });
+      });
+    }
+    if (birthRecords.length > 0) {
+      items.push({ type: 'section-header', title: t('hospital.history.births'), id: 'birth-header' });
+      birthRecords.forEach(record => {
+        items.push({ type: 'record', record, id: `birth-${record.id}` });
+      });
+    }
+    return items;
+  };
+
   const renderPregnancyCard = (record: Record) => (
     <Pressable
-      key={record.id}
       onPress={() => {
         // TODO: Ouvrir la fiche détaillée
         console.log('Ouvrir fiche grossesse:', record.id);
@@ -187,7 +212,6 @@ export default function HospitalHistoryScreen() {
 
   const renderBirthCard = (record: Record) => (
     <Pressable
-      key={record.id}
       onPress={() => {
         // TODO: Ouvrir la fiche détaillée
         console.log('Ouvrir fiche naissance:', record.id);
@@ -240,10 +264,7 @@ export default function HospitalHistoryScreen() {
   );
 
   return (
-    <ThemedView 
-      variant="background" 
-      style={styles.container}
-    >
+    <ScreenContainer variant="background">
       {/* 1️⃣ PARTIE 1: HEADER (Sticky) */}
       <ThemedView 
         variant="transparent"
@@ -251,6 +272,7 @@ export default function HospitalHistoryScreen() {
           styles.headerSection, 
           { 
             backgroundColor: theme.colors.primary,
+            paddingTop: Math.max(insets.top, 8),
             // Forcer le fond bleu et éviter tout fond par défaut
           }
         ])}
@@ -425,24 +447,18 @@ export default function HospitalHistoryScreen() {
       </ThemedView>
 
       {/* 2️⃣ PARTIE 2: CONTENU PRINCIPAL */}
-      <ScrollView
-        style={{ backgroundColor: 'transparent' }}
-        contentContainerStyle={[
-          styles.scrollContent,
-          isTablet && styles.scrollContentTablet
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ThemedView variant="transparent" style={{ flex: 1 }}>
         {/* Onglets de catégories */}
         <ThemedView variant="transparent" style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.tab,
               activeTab === 'all' && {
                 backgroundColor: theme.colors.primary + '15',
                 borderBottomWidth: 2,
                 borderBottomColor: theme.colors.primary,
-              }
+              },
+              pressed && { opacity: 0.7 }
             ]}
             onPress={() => setActiveTab('all')}
           >
@@ -455,16 +471,17 @@ export default function HospitalHistoryScreen() {
             >
               {t('hospital.history.tabAll')}
             </ThemedText>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.tab,
               activeTab === 'pregnancy' && {
                 backgroundColor: theme.colors.success + '15',
                 borderBottomWidth: 2,
                 borderBottomColor: theme.colors.success,
-              }
+              },
+              pressed && { opacity: 0.7 }
             ]}
             onPress={() => setActiveTab('pregnancy')}
           >
@@ -477,16 +494,17 @@ export default function HospitalHistoryScreen() {
             >
               {t('hospital.history.tabPregnancies')} ({pregnancyRecords.length})
             </ThemedText>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[
+          <Pressable
+            style={({ pressed }) => [
               styles.tab,
               activeTab === 'birth' && {
                 backgroundColor: theme.colors.primary + '15',
                 borderBottomWidth: 2,
                 borderBottomColor: theme.colors.primary,
-              }
+              },
+              pressed && { opacity: 0.7 }
             ]}
             onPress={() => setActiveTab('birth')}
           >
@@ -499,80 +517,93 @@ export default function HospitalHistoryScreen() {
             >
               {t('hospital.history.tabBirths')} ({birthRecords.length})
             </ThemedText>
-          </TouchableOpacity>
+          </Pressable>
         </ThemedView>
 
-        {/* Liste des enregistrements */}
+        {/* Liste des enregistrements avec FlatList */}
         {activeTab === 'all' ? (
-          <>
-            {pregnancyRecords.length > 0 && (
-              <>
-                <ThemedText size="lg" weight="semibold" style={styles.sectionHeader}>
-                  {t('hospital.history.pregnancies')}
+          filteredRecords.length === 0 ? (
+            <ThemedCard style={styles.emptyCard}>
+              <ThemedView variant="transparent" style={styles.emptyContent}>
+                <FontAwesome name="file-text-o" size={48} color={theme.colors.textSecondary} />
+                <ThemedText variant="secondary" size="base" style={styles.emptyText}>
+                  {t('hospital.history.noRecords')}
                 </ThemedText>
-                {pregnancyRecords.map(renderPregnancyCard)}
-              </>
-            )}
-            {birthRecords.length > 0 && (
-              <>
-                <ThemedText 
-                  size="lg" 
-                  weight="semibold" 
-                  style={StyleSheet.flatten([styles.sectionHeader, { marginTop: pregnancyRecords.length > 0 ? 24 : 0 }])}
-                >
-                  {t('hospital.history.births')}
-                </ThemedText>
-                {birthRecords.map(renderBirthCard)}
-              </>
-            )}
-          </>
+              </ThemedView>
+            </ThemedCard>
+          ) : (
+            <FlatList
+              data={getAllRecordsList()}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                if (item.type === 'section-header') {
+                  return (
+                    <ThemedText size="lg" weight="semibold" style={styles.sectionHeader}>
+                      {item.title}
+                    </ThemedText>
+                  );
+                } else {
+                  return item.record.type === 'pregnancy' 
+                    ? renderPregnancyCard(item.record)
+                    : renderBirthCard(item.record);
+                }
+              }}
+              contentContainerStyle={[
+                styles.flatListContent,
+                isTablet && styles.flatListContentTablet
+              ]}
+              showsVerticalScrollIndicator={false}
+            />
+          )
         ) : activeTab === 'pregnancy' ? (
-          pregnancyRecords.length > 0 ? (
-            pregnancyRecords.map(renderPregnancyCard)
-          ) : (
-            <ThemedCard style={styles.emptyCard}>
-              <ThemedView variant="transparent" style={styles.emptyContent}>
-                <FontAwesome name="heart" size={48} color={theme.colors.textSecondary} />
-                <ThemedText variant="secondary" size="base" style={styles.emptyText}>
-                  {t('hospital.history.noPregnancies')}
-                </ThemedText>
-              </ThemedView>
-            </ThemedCard>
-          )
+          <FlatList
+            data={pregnancyRecords}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => renderPregnancyCard(item)}
+            contentContainerStyle={[
+              styles.flatListContent,
+              isTablet && styles.flatListContentTablet
+            ]}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <ThemedCard style={styles.emptyCard}>
+                <ThemedView variant="transparent" style={styles.emptyContent}>
+                  <FontAwesome name="heart" size={48} color={theme.colors.textSecondary} />
+                  <ThemedText variant="secondary" size="base" style={styles.emptyText}>
+                    {t('hospital.history.noPregnancies')}
+                  </ThemedText>
+                </ThemedView>
+              </ThemedCard>
+            }
+          />
         ) : (
-          birthRecords.length > 0 ? (
-            birthRecords.map(renderBirthCard)
-          ) : (
-            <ThemedCard style={styles.emptyCard}>
-              <ThemedView variant="transparent" style={styles.emptyContent}>
-                <FontAwesome name="child" size={48} color={theme.colors.textSecondary} />
-                <ThemedText variant="secondary" size="base" style={styles.emptyText}>
-                  {t('hospital.history.noBirths')}
-                </ThemedText>
-              </ThemedView>
-            </ThemedCard>
-          )
+          <FlatList
+            data={birthRecords}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => renderBirthCard(item)}
+            contentContainerStyle={[
+              styles.flatListContent,
+              isTablet && styles.flatListContentTablet
+            ]}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <ThemedCard style={styles.emptyCard}>
+                <ThemedView variant="transparent" style={styles.emptyContent}>
+                  <FontAwesome name="child" size={48} color={theme.colors.textSecondary} />
+                  <ThemedText variant="secondary" size="base" style={styles.emptyText}>
+                    {t('hospital.history.noBirths')}
+                  </ThemedText>
+                </ThemedView>
+              </ThemedCard>
+            }
+          />
         )}
-
-        {filteredRecords.length === 0 && (
-          <ThemedCard style={styles.emptyCard}>
-            <ThemedView variant="transparent" style={styles.emptyContent}>
-              <FontAwesome name="file-text-o" size={48} color={theme.colors.textSecondary} />
-              <ThemedText variant="secondary" size="base" style={styles.emptyText}>
-                {t('hospital.history.noRecords')}
-              </ThemedText>
-            </ThemedView>
-          </ThemedCard>
-        )}
-      </ScrollView>
-    </ThemedView>
+      </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   // PARTIE 1: HEADER
   headerSection: {
     paddingHorizontal: 16,
@@ -653,11 +684,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   // PARTIE 2: CONTENU
-  scrollContent: {
+  flatListContent: {
     padding: 16,
     paddingBottom: 100,
   },
-  scrollContentTablet: {
+  flatListContentTablet: {
     paddingHorizontal: 32,
     maxWidth: 800,
     alignSelf: 'center',

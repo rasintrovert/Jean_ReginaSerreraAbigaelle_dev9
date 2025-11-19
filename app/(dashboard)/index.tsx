@@ -26,9 +26,6 @@ export default function DashboardIndex() {
       case 'hospital':
         router.replace('/(dashboard)/hospital' as any);
         break;
-      case 'validator':
-        router.replace('/(dashboard)/validator/queue' as any);
-        break;
       default:
         router.replace('/(auth)/login' as any);
     }

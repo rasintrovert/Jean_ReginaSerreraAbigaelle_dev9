@@ -35,13 +35,23 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     
     set({ isSyncing: true });
     try {
-      // TODO: Appeler pregnancyStore.syncPregnancies()
-      // TODO: Appeler birthStore.syncBirths()
+      // Importer dynamiquement pour éviter les dépendances circulaires
+      const { syncPendingRecords, pullFromFirestore, getPendingCount } = await import('@/services/sync/syncService');
+      
+      // Synchroniser les enregistrements en attente
+      await syncPendingRecords();
+      
+      // Récupérer les nouvelles données depuis Firestore
+      await pullFromFirestore('pregnancy');
+      await pullFromFirestore('birth');
+      
+      // Mettre à jour le nombre d'enregistrements en attente
+      const pendingCount = await getPendingCount();
       
       set({ 
         isSyncing: false, 
         lastSyncDate: new Date(),
-        pendingSync: { pregnancies: 0, births: 0 },
+        pendingSync: pendingCount,
       });
     } catch (error) {
       console.error('Sync all error:', error);

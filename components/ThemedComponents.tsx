@@ -3,12 +3,12 @@ import React from 'react';
 import {
   Text as RNText,
   TextInput as RNTextInput,
-  TouchableOpacity as RNTouchableOpacity,
+  Pressable as RNPressable,
   View as RNView,
   StyleSheet,
   TextInputProps,
   TextStyle,
-  TouchableOpacityProps,
+  PressableProps,
   ViewStyle
 } from 'react-native';
 
@@ -29,13 +29,13 @@ interface ThemedViewProps extends ViewStyle {
   style?: ViewStyle;
 }
 
-interface ThemedButtonProps extends TouchableOpacityProps {
+interface ThemedButtonProps extends Omit<PressableProps, 'style'> {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   accessibilityLabel?: string;
-  style?: ViewStyle;
+  style?: ViewStyle | ((pressed: boolean) => ViewStyle);
 }
 
 interface ThemedInputProps extends TextInputProps {
@@ -218,8 +218,13 @@ export function ThemedButton({
   };
   
   return (
-    <RNTouchableOpacity
-      style={[getButtonStyle(), style]}
+    <RNPressable
+      style={({ pressed }) => {
+        const baseStyle = getButtonStyle();
+        const opacityStyle = pressed && !disabled ? { opacity: 0.7 } : {};
+        const customStyle = typeof style === 'function' ? style(pressed) : style;
+        return [baseStyle, opacityStyle, customStyle];
+      }}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
@@ -233,7 +238,7 @@ export function ThemedButton({
       >
         {children}
       </ThemedText>
-    </RNTouchableOpacity>
+    </RNPressable>
   );
 }
 

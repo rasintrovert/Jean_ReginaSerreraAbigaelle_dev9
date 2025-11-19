@@ -1,4 +1,5 @@
 import { PressableButton } from '@/components/PressableButton';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedCard,
   ThemedInput,
@@ -7,6 +8,7 @@ import {
 } from '@/components/ThemedComponents';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -72,6 +74,8 @@ export default function HospitalProfileScreen() {
     }
   };
 
+  const { logout } = useAuthStore();
+  
   const handleLogout = () => {
     Alert.alert(
       t('hospital.profile.logout') || t('agent.profile.logout'),
@@ -81,8 +85,14 @@ export default function HospitalProfileScreen() {
         { 
           text: t('hospital.profile.logout') || t('agent.profile.logout'), 
           style: 'destructive' as const,
-          onPress: () => {
-            router.replace('/(auth)/login' as any);
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace('/(auth)/login' as any);
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert(t('common.error'), t('errors.generic'));
+            }
           }
         },
       ]
@@ -94,7 +104,7 @@ export default function HospitalProfileScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -438,14 +448,11 @@ export default function HospitalProfileScreen() {
           </ThemedCard>
         </ThemedView>
       </Modal>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     paddingBottom: 100,
   },

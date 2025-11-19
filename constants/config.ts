@@ -29,7 +29,6 @@ export const CONFIG = {
   ROLES: {
     AGENT: 'agent',
     ADMIN: 'admin',
-    VALIDATOR: 'validator',
     HOSPITAL: 'hospital',
   } as const,
 };

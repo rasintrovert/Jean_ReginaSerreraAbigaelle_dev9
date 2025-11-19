@@ -1,4 +1,5 @@
 import { PressableButton } from '@/components/PressableButton';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
     ThemedCard,
     ThemedText,
@@ -10,7 +11,7 @@ import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 export default function HospitalDashboard() {
   const router = useRouter();
@@ -87,7 +88,7 @@ export default function HospitalDashboard() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ScreenContainer variant="background">
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
@@ -421,8 +422,11 @@ export default function HospitalDashboard() {
 
       {/* 7️⃣ Barre de navigation inférieure */}
       <ThemedView style={{ ...styles.bottomNavigation, backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }}>
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('home')}
         >
           <FontAwesome 
@@ -437,10 +441,13 @@ export default function HospitalDashboard() {
           >
             {t('hospital.navigation.home')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('history')}
         >
           <FontAwesome 
@@ -456,10 +463,13 @@ export default function HospitalDashboard() {
           >
             {t('hospital.navigation.history')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItemCenter}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItemCenter,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('add')}
         >
           <ThemedView style={styles.centerNavIcon}>
@@ -476,10 +486,13 @@ export default function HospitalDashboard() {
           >
             {t('hospital.navigation.add')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('search')}
         >
           <FontAwesome 
@@ -495,10 +508,13 @@ export default function HospitalDashboard() {
           >
             {t('hospital.navigation.search')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.navItem}
+        <Pressable
+          style={({ pressed }) => [
+            styles.navItem,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => handleBottomNavPress('profile')}
         >
           <FontAwesome 
@@ -514,7 +530,7 @@ export default function HospitalDashboard() {
           >
             {t('hospital.navigation.profile')}
           </ThemedText>
-        </TouchableOpacity>
+        </Pressable>
       </ThemedView>
 
       {/* Modal pour choisir le type d'enregistrement */}
@@ -623,14 +639,11 @@ export default function HospitalDashboard() {
           </ThemedView>
         </ThemedView>
       </Modal>
-    </ThemedView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     padding: 0,
     paddingBottom: 100,

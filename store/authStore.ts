@@ -1,71 +1,170 @@
 import { create } from 'zustand';
+import { 
+  login as firebaseLogin, 
+  register as firebaseRegister,
+  signOut as firebaseSignOut,
+  onAuthStateChange,
+  getUserProfile,
+  getAuthErrorMessage,
+  UserProfile
+} from '@/services/firebase/authService';
+import { UserRole } from '@/types/user';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'agent' | 'admin' | 'validator' | 'hospital';
-  token: string;
+  role: UserRole;
+  phone?: string;
+  organization?: string;
 }
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  error: string | null;
   login: (credentials: { email: string; password: string }) => Promise<void>;
-  logout: () => void;
-  register: (data: { name: string; email: string; password: string; role: string }) => Promise<void>;
+  logout: () => Promise<void>;
+  register: (data: { name: string; email: string; password: string; role: UserRole }) => Promise<void>;
+  clearError: () => void;
+  initializeAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+// Convertir UserProfile en User pour le store
+function profileToUser(profile: UserProfile): User {
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    role: profile.role,
+    phone: profile.phone,
+    organization: profile.organization,
+  };
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // Commence à true pour vérifier l'état initial
+  error: null,
   
   login: async (credentials) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      // TODO: Appel API pour authentification
-      // const response = await fetch('API_URL/login', { ... });
-      // const { user, token } = await response.json();
-      
-      // Simulation temporaire
-      const mockUser: User = {
-        id: '1',
-        name: 'Jean Dupont',
-        email: credentials.email,
-        role: 'agent',
-        token: 'mock-token',
-      };
+      const profile = await firebaseLogin(credentials.email, credentials.password);
+      const user = profileToUser(profile);
       
       set({ 
-        user: mockUser, 
+        user, 
         isAuthenticated: true, 
-        isLoading: false 
+        isLoading: false,
+        error: null
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      set({ isLoading: false });
+      const errorMessage = getAuthErrorMessage(error);
+      set({ 
+        isLoading: false, 
+        error: errorMessage,
+        isAuthenticated: false 
+      });
       throw error;
     }
   },
   
-  logout: () => {
-    set({ user: null, isAuthenticated: false });
+  logout: async () => {
+    try {
+      await firebaseSignOut();
+      set({ 
+        user: null, 
+        isAuthenticated: false,
+        error: null 
+      });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      const errorMessage = getAuthErrorMessage(error);
+      set({ error: errorMessage });
+      throw error;
+    }
   },
   
   register: async (data) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      // TODO: Appel API pour inscription
-      // const response = await fetch('API_URL/register', { ... });
+      const profile = await firebaseRegister(
+        data.email,
+        data.password,
+        data.name,
+        data.role
+      );
+      const user = profileToUser(profile);
       
-      set({ isLoading: false });
-    } catch (error) {
+      set({ 
+        user, 
+        isAuthenticated: true, 
+        isLoading: false,
+        error: null
+      });
+    } catch (error: any) {
       console.error('Register error:', error);
-      set({ isLoading: false });
+      const errorMessage = getAuthErrorMessage(error);
+      set({ 
+        isLoading: false, 
+        error: errorMessage,
+        isAuthenticated: false 
+      });
       throw error;
     }
+  },
+  
+  clearError: () => {
+    set({ error: null });
+  },
+  
+  initializeAuth: () => {
+    // Écouter les changements d'état d'authentification
+    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        // Utilisateur connecté, récupérer le profil
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            const user = profileToUser(profile);
+            set({ 
+              user, 
+              isAuthenticated: true, 
+              isLoading: false 
+            });
+          } else {
+            // Profil non trouvé, déconnecter
+            await firebaseSignOut();
+            set({ 
+              user: null, 
+              isAuthenticated: false, 
+              isLoading: false 
+            });
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+          set({ 
+            user: null, 
+            isAuthenticated: false, 
+            isLoading: false 
+          });
+        }
+      } else {
+        // Utilisateur déconnecté
+        set({ 
+          user: null, 
+          isAuthenticated: false, 
+          isLoading: false 
+        });
+      }
+    });
+    
+    // Retourner la fonction de nettoyage (optionnel, pour cleanup)
+    return unsubscribe;
   },
 }));
 

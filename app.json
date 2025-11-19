@@ -36,7 +36,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-navigation-bar"
+      "expo-navigation-bar",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
