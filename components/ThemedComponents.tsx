@@ -1,14 +1,14 @@
 import { useTheme } from '@/theme';
 import React from 'react';
 import {
+  PressableProps,
+  Pressable as RNPressable,
   Text as RNText,
   TextInput as RNTextInput,
-  Pressable as RNPressable,
   View as RNView,
   StyleSheet,
   TextInputProps,
   TextStyle,
-  PressableProps,
   ViewStyle
 } from 'react-native';
 
@@ -227,7 +227,7 @@ export function ThemedButton({
       }}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled: disabled ?? false }}
       disabled={disabled}
       {...props}
     >

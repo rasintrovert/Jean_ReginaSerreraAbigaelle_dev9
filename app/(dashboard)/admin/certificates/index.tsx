@@ -1,18 +1,18 @@
+import { PressableButton } from '@/components/PressableButton';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { ThemedCard, ThemedText, ThemedView } from '@/components/ThemedComponents';
-import { PressableButton } from '@/components/PressableButton';
-import { useTheme } from '@/theme';
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, FlatList, ActivityIndicator, Modal, Alert } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontAwesome } from '@expo/vector-icons';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useTranslation } from '@/hooks/useTranslation';
 import { getRecordsForValidation } from '@/services/admin/adminService';
 import { firestore } from '@/services/firebase/config';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { useTheme } from '@/theme';
 import { formatDateSafe } from '@/utils/date';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useResponsive } from '@/hooks/useResponsive';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { doc, Timestamp, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type CertificateStatus = 'pending' | 'verified' | 'approved' | 'issued' | 'rejected';
 type FilterStatus = 'all' | CertificateStatus;
@@ -157,10 +157,10 @@ export default function CertificatesManagementScreen() {
           <ThemedView variant="transparent" style={styles.cardHeaderLeft}>
             <ThemedView
               variant="transparent"
-              style={[
+              style={StyleSheet.flatten([
                 styles.statusBadge,
                 { backgroundColor: statusBadge.color + '20' }
-              ]}
+              ])}
             >
               <ThemedText
                 size="xs"
@@ -248,7 +248,7 @@ export default function CertificatesManagementScreen() {
                 {
                   backgroundColor: filterStatus === status
                     ? theme.colors.primary
-                    : theme.colors.backgroundSecondary,
+                    : theme.colors.surface,
                   borderColor: filterStatus === status
                     ? theme.colors.primary
                     : theme.colors.border,
@@ -356,10 +356,10 @@ export default function CertificatesManagementScreen() {
                   <ThemedText variant="secondary" size="sm">Statut:</ThemedText>
                   <ThemedView
                     variant="transparent"
-                    style={[
+                    style={StyleSheet.flatten([
                       styles.statusBadge,
                       { backgroundColor: getStatusBadge(selectedCertificate.certificateStatus).color + '20' }
-                    ]}
+                    ])}
                   >
                     <ThemedText
                       size="sm"
@@ -431,7 +431,7 @@ export default function CertificatesManagementScreen() {
                         );
                       }}
                       disabled={isProcessing}
-                      style={[styles.actionButton, { borderColor: theme.colors.error }]}
+                      style={StyleSheet.flatten([styles.actionButton, { borderColor: theme.colors.error }])}
                     />
                   )}
                 </ThemedView>
