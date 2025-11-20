@@ -36,21 +36,20 @@ Aucune autre configuration n'est nécessaire.
 Pour tester l'application, vous pouvez utiliser les comptes suivants qui ont été créés dans Firebase :
 
 #### Compte Agent
-- **Email** : `agent@test.com` (ou l'email que vous avez utilisé lors de la création)
-- **Mot de passe** : `agent123` (ou le mot de passe que vous avez défini)
+- **Email** : `test@example.com`
+- **Mot de passe** : `test123456`
 - **Rôle** : Agent de terrain
 
 #### Compte Administrateur
-- **Email** : `admin@test.com` (ou l'email que vous avez utilisé lors de la création)
-- **Mot de passe** : `admin123` (ou le mot de passe que vous avez défini)
+- **Email** : `admin@test.com`
+- **Mot de passe** : `test123456` 
 - **Rôle** : Administrateur
 
 #### Compte Hôpital
-- **Email** : `hospital@test.com` (ou l'email que vous avez utilisé lors de la création)
-- **Mot de passe** : `hospital123` (ou le mot de passe que vous avez défini)
+- **Email** : `hospital@test.com` 
+- **Mot de passe** : `test123456` 
 - **Rôle** : Hôpital
 
-**Note** : Si vous avez créé vos propres comptes de test avec des identifiants différents, utilisez les emails et mots de passe que vous avez définis lors de la création des utilisateurs dans Firebase Authentication.
 
 ### Connexion
 
