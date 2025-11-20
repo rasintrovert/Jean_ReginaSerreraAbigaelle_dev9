@@ -8,14 +8,14 @@ import {
 import { HAITIAN_DEPARTMENTS } from '@/constants/departments';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { getRecordsForValidation } from '@/services/admin/adminService';
 import { useLanguageStore } from '@/store/languageStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRecordsForValidation } from '@/services/admin/adminService';
 
 export default function AdminStatisticsScreen() {
   const router = useRouter();
@@ -469,7 +469,9 @@ export default function AdminStatisticsScreen() {
                       backgroundColor: theme.colors.success
                     }
                   ])}
-                />
+                >
+                  {null}
+                </ThemedView>
               </ThemedView>
               <ThemedText size="base" weight="bold" style={styles.rateValue}>
                 {((globalStats.validated / globalStats.totalRegistrations) * 100).toFixed(1)}%
@@ -490,7 +492,9 @@ export default function AdminStatisticsScreen() {
                       backgroundColor: theme.colors.secondary
                     }
                   ])}
-                />
+                >
+                  {null}
+                </ThemedView>
               </ThemedView>
               <ThemedText size="base" weight="bold" style={styles.rateValue}>
                 {((globalStats.legalized / globalStats.totalRegistrations) * 100).toFixed(1)}%

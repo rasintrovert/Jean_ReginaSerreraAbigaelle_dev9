@@ -3,7 +3,9 @@
  * Ce fichier est conservé pour la compatibilité avec l'écran de login existant
  */
 
+import Colors from '@/constants/Colors';
 import { useTheme } from '@/theme';
+import { darkTheme } from '@/theme';
 import { Text as DefaultText, View as DefaultView } from 'react-native';
 
 type ThemeProps = {
@@ -42,8 +44,3 @@ export function View(props: ViewProps) {
 
   return <DefaultView style={[{ backgroundColor }, style]} {...otherProps} />;
 }
-
-// Import des types nécessaires pour la compatibilité
-import Colors from '@/constants/Colors';
-import { darkTheme } from '@/theme';
-

@@ -1,3 +1,5 @@
+import { ProofDocument } from '@/components/ProofDocument';
+import { ScreenContainer } from '@/components/ScreenContainer';
 import {
   ThemedButton,
   ThemedCard,
@@ -5,19 +7,17 @@ import {
   ThemedText,
   ThemedView
 } from '@/components/ThemedComponents';
-import { ScreenContainer } from '@/components/ScreenContainer';
-import { ProofDocument } from '@/components/ProofDocument';
 import { useOrientation } from '@/hooks/useOrientation';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
-import { usePregnancyStore } from '@/store/pregnancyStore';
 import { useBirthStore } from '@/store/birthStore';
+import { usePregnancyStore } from '@/store/pregnancyStore';
 import { useTheme } from '@/theme';
 import { formatDate } from '@/utils/date';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState, useMemo } from 'react';
-import { Alert, FlatList, Modal, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Modal, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Types pour les données
@@ -58,7 +58,7 @@ export default function AgentHistory() {
     pregnancies.forEach((pregnancy) => {
       try {
         // Utiliser firestoreId si disponible, sinon l'ID local
-        const uniqueId = pregnancy.firestoreId || pregnancy.id;
+        const uniqueId = (pregnancy as any).firestoreId || pregnancy.id;
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
@@ -92,7 +92,7 @@ export default function AgentHistory() {
     births.forEach((birth) => {
       try {
         // Utiliser firestoreId si disponible, sinon l'ID local
-        const uniqueId = birth.firestoreId || birth.id;
+        const uniqueId = (birth as any).firestoreId || birth.id;
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
@@ -627,7 +627,9 @@ export default function AgentHistory() {
             <ThemedText size="lg" weight="bold" style={styles.proofModalTitle}>
               {selectedProof ? getTypeLabel(selectedProof.type) : ''}
             </ThemedText>
-            <ThemedView style={{ width: 40 }} />
+            <ThemedView style={{ width: 40 }}>
+              {null}
+            </ThemedView>
           </ThemedView>
           
           {selectedProof && (

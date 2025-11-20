@@ -7,16 +7,16 @@ import {
 } from '@/components/ThemedComponents';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { getRecordsForValidation } from '@/services/admin/adminService';
+import { getAllEmergencyReports } from '@/services/emergency/emergencyService';
+import { useBirthStore } from '@/store/birthStore';
+import { usePregnancyStore } from '@/store/pregnancyStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRecordsForValidation } from '@/services/admin/adminService';
-import { usePregnancyStore } from '@/store/pregnancyStore';
-import { useBirthStore } from '@/store/birthStore';
-import { getAllEmergencyReports } from '@/services/emergency/emergencyService';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -477,10 +477,10 @@ export default function AdminDashboard() {
               {emergencyCount > 0 && (
                 <ThemedView 
                   variant="transparent"
-                  style={[
+                  style={StyleSheet.flatten([
                     styles.emergencyBadge,
                     { backgroundColor: theme.colors.error }
-                  ]}
+                  ])}
                 >
                   <ThemedText 
                     size="xs" 
@@ -681,7 +681,7 @@ export default function AdminDashboard() {
                   />
                 </ThemedView>
                 <ThemedView variant="transparent" style={styles.recordContent}>
-                  <ThemedText size="base" weight="semibold" numberOfLines={1}>
+                  <ThemedText size="base" weight="semibold">
                     {record.name}
                   </ThemedText>
                   <ThemedText variant="secondary" size="xs" style={styles.recordId}>

@@ -9,24 +9,25 @@ import {
 import { HAITIAN_DEPARTMENTS } from '@/constants/departments';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useLanguageStore } from '@/store/languageStore';
-import { useTheme } from '@/theme';
-import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput as RNTextInput, View, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  getAllUsers, 
-  createUser, 
-  updateUser, 
-  toggleUserStatus, 
-  resetUserPassword,
-  getUserStatistics,
+import {
   AdminUser,
+  createUser,
   CreateUserData,
+  getAllUsers,
+  getUserStatistics,
+  resetUserPassword,
+  toggleUserStatus,
+  updateUser,
   UpdateUserData
 } from '@/services/admin/userService';
+import { useLanguageStore } from '@/store/languageStore';
+import { useTheme } from '@/theme';
+import { formatDateSafe } from '@/utils/date';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, TextInput as RNTextInput, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type UserRole = 'agent' | 'hospital' | 'admin';
 type UserStatus = 'active' | 'inactive';
@@ -44,7 +45,7 @@ export default function AdminUsersScreen() {
   const [departmentFilter, setDepartmentFilter] = useState<string | 'all'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
@@ -333,7 +334,7 @@ export default function AdminUsersScreen() {
 
   const handleViewActivity = (user: AdminUser) => {
     const lastActivityDate = user.lastActivity 
-      ? new Date(user.lastActivity).toLocaleDateString('fr-FR')
+      ? formatDateSafe(user.lastActivity, 'dd/MM/yyyy')
       : 'N/A';
     Alert.alert(
       t('admin.users.activity') || 'Activité',
@@ -1499,12 +1500,6 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     maxHeight: 400,
-  },
-  modalOption: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
   },
   roleSelector: {
     flexDirection: 'row',

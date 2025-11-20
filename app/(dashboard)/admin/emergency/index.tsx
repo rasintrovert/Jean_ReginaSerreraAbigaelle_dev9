@@ -8,20 +8,20 @@ import {
 } from '@/components/ThemedComponents';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  acknowledgeEmergencyReport,
+  EmergencyReport,
+  getAllEmergencyReports,
+  resolveEmergencyReport
+} from '@/services/emergency/emergencyService';
 import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@/theme';
+import { formatDateSafe } from '@/utils/date';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  getAllEmergencyReports, 
-  acknowledgeEmergencyReport, 
-  resolveEmergencyReport,
-  EmergencyReport 
-} from '@/services/emergency/emergencyService';
-import { formatDateSafe } from '@/utils/date';
 
 type FilterStatus = 'all' | 'pending' | 'acknowledged' | 'resolved';
 
@@ -165,10 +165,10 @@ export default function AdminEmergencyScreen() {
           <ThemedView variant="transparent" style={styles.reportHeaderLeft}>
             <ThemedView 
               variant="transparent" 
-              style={[
+              style={StyleSheet.flatten([
                 styles.urgencyBadge,
                 { backgroundColor: urgencyBadge.color + '20' }
-              ]}
+              ])}
             >
               <ThemedText 
                 size="xs" 
@@ -180,10 +180,10 @@ export default function AdminEmergencyScreen() {
             </ThemedView>
             <ThemedView 
               variant="transparent" 
-              style={[
+              style={StyleSheet.flatten([
                 styles.statusBadge,
                 { backgroundColor: statusBadge.color + '20' }
-              ]}
+              ])}
             >
               <ThemedText 
                 size="xs" 
@@ -208,7 +208,6 @@ export default function AdminEmergencyScreen() {
         <ThemedText 
           variant="secondary" 
           size="sm" 
-          numberOfLines={2}
           style={styles.reportDescription}
         >
           {item.description}
@@ -433,10 +432,10 @@ export default function AdminEmergencyScreen() {
                   <ThemedView variant="transparent" style={styles.detailsBadges}>
                     <ThemedView 
                       variant="transparent" 
-                      style={[
+                      style={StyleSheet.flatten([
                         styles.detailBadge,
                         { backgroundColor: getUrgencyBadge(selectedReport.urgencyLevel).color + '20' }
-                      ]}
+                      ])}
                     >
                       <ThemedText 
                         size="sm" 
@@ -448,10 +447,10 @@ export default function AdminEmergencyScreen() {
                     </ThemedView>
                     <ThemedView 
                       variant="transparent" 
-                      style={[
+                      style={StyleSheet.flatten([
                         styles.detailBadge,
                         { backgroundColor: getStatusBadge(selectedReport.status).color + '20' }
-                      ]}
+                      ])}
                     >
                       <ThemedText 
                         size="sm" 
@@ -562,7 +561,7 @@ export default function AdminEmergencyScreen() {
                         fullWidth
                         onPress={() => setShowResolveModal(true)}
                         disabled={isProcessing}
-                        style={[styles.modalActionButton, { backgroundColor: theme.colors.success }]}
+                        style={StyleSheet.flatten([styles.modalActionButton, { backgroundColor: theme.colors.success }])}
                       >
                         Marquer comme résolu
                       </PressableButton>
@@ -640,7 +639,7 @@ export default function AdminEmergencyScreen() {
                   size="md"
                   onPress={handleResolve}
                   disabled={isProcessing}
-                  style={[styles.resolveButton, { backgroundColor: theme.colors.success }]}
+                  style={StyleSheet.flatten([styles.resolveButton, { backgroundColor: theme.colors.success }])}
                 >
                   {isProcessing ? 'Traitement...' : 'Résoudre'}
                 </PressableButton>
