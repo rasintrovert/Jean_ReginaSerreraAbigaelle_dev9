@@ -99,25 +99,41 @@ export async function initDatabase(): Promise<void> {
 
 /**
  * Exécuter une requête SQL (SELECT)
+ * Note: Cette fonction est maintenue pour compatibilité mais devrait utiliser querySql pour les SELECT
  */
 export async function executeSql(
   sql: string,
   params: any[] = []
-): Promise<SQLite.SQLResultSet> {
+): Promise<any> {
   try {
     const database = await getDatabase();
-    const result = await database.runAsync(sql, params);
     
-    // Pour compatibilité avec l'ancienne API
-    return {
-      insertId: result.lastInsertRowId,
-      rowsAffected: result.changes,
-      rows: {
-        length: result.rows ? result.rows.length : 0,
-        item: (index: number) => result.rows?.[index] || null,
-        _array: result.rows || [],
-      },
-    } as any;
+    // Si c'est une requête SELECT, utiliser getAllAsync
+    const trimmedSql = sql.trim().toUpperCase();
+    if (trimmedSql.startsWith('SELECT')) {
+      const rows = await database.getAllAsync(sql, params);
+      return {
+        insertId: undefined,
+        rowsAffected: 0,
+        rows: {
+          length: rows.length,
+          item: (index: number) => rows[index] || null,
+          _array: rows,
+        },
+      };
+    } else {
+      // Pour INSERT, UPDATE, DELETE, utiliser runAsync
+      const result = await database.runAsync(sql, params);
+      return {
+        insertId: result.lastInsertRowId,
+        rowsAffected: result.changes,
+        rows: {
+          length: 0,
+          item: () => null,
+          _array: [],
+        },
+      };
+    }
   } catch (error) {
     console.error('SQL execution error:', error);
     throw error;

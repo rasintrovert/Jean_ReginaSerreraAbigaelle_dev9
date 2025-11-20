@@ -1,21 +1,20 @@
 import { PressableButton } from '@/components/PressableButton';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import {
-    ThemedCard,
-    ThemedText,
-    ThemedView
+  ThemedText,
+  ThemedView
 } from '@/components/ThemedComponents';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
+import { getRecordsForValidation } from '@/services/admin/adminService';
+import { AdminUser, getUserById } from '@/services/admin/userService';
+import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '@/store/authStore';
-import { getUserById, AdminUser } from '@/services/admin/userService';
-import { getRecordsForValidation } from '@/services/admin/adminService';
 
 export default function HospitalDashboard() {
   const router = useRouter();
@@ -179,9 +178,9 @@ export default function HospitalDashboard() {
         contentContainerStyle={[
           styles.scrollContent,
           isTablet && styles.scrollContentTablet,
-          { paddingBottom: insets.bottom + 20 } // SafeArea + espace supplémentaire
+          { paddingBottom: insets.bottom + 100 } // SafeArea + hauteur de la barre de navigation + espace supplémentaire
         ]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {/* 1️⃣ Header avec dégradé */}
         <ThemedView 
@@ -376,128 +375,82 @@ export default function HospitalDashboard() {
           </Pressable>
         </ThemedView>
 
-        {/* 4️⃣ Statistiques - Cette Semaine */}
-        <ThemedCard style={styles.statsCard}>
-          <ThemedView variant="transparent" style={styles.statsHeader}>
-            <ThemedText size="lg" weight="semibold" style={styles.statsTitle}>
-              {t('hospital.dashboard.thisWeek')}
-            </ThemedText>
-            <ThemedText variant="secondary" size="sm" style={styles.statsSubtitle}>
+        {/* 4️⃣ Statistiques - Design compact horizontal */}
+        <ThemedView style={StyleSheet.flatten([styles.statsCardCompact, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }])}>
+          <ThemedView variant="transparent" style={styles.statsCompactHeader}>
+            <FontAwesome name="bar-chart" size={14} color={theme.colors.primary} />
+            <ThemedText size="xs" weight="semibold" style={styles.statsCompactTitle}>
               {t('hospital.dashboard.recentActivity')}
             </ThemedText>
           </ThemedView>
           
-          <ThemedView variant="transparent" style={styles.statsRows}>
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([styles.statsRow, { backgroundColor: theme.colors.primary + '10' }])}
-            >
-              <ThemedView 
-                variant="transparent" 
-                style={StyleSheet.flatten([styles.statsRowIcon, { backgroundColor: theme.colors.success + '20' }])}
-              >
-                <FontAwesome 
-                  name="heart" 
-                  size={20} 
-                  color={theme.colors.success} 
-                />
+          <ThemedView variant="transparent" style={styles.statsCompactContent}>
+            {/* Cette Semaine - Design horizontal compact */}
+            <ThemedView variant="transparent" style={styles.statsCompactSection}>
+              <ThemedText variant="secondary" size="xs" style={styles.statsCompactPeriod}>
+                {t('hospital.dashboard.thisWeek')}
+              </ThemedText>
+              <ThemedView variant="transparent" style={styles.statsCompactRow}>
+                <ThemedView variant="transparent" style={styles.statsCompactItem}>
+                  <FontAwesome name="heart" size={12} color={theme.colors.success} />
+                  <ThemedText size="xs" style={styles.statsCompactLabel}>
+                    {t('hospital.dashboard.pregnancies')}
+                  </ThemedText>
+                  <ThemedText size="xs" weight="bold" style={{ color: theme.colors.success }}>
+                    {statsThisWeek.pregnancies}
+                  </ThemedText>
+                </ThemedView>
+                <ThemedView variant="transparent" style={styles.statsCompactDivider}>
+                  {null}
+                </ThemedView>
+                <ThemedView variant="transparent" style={styles.statsCompactItem}>
+                  <FontAwesome name="child" size={12} color={theme.colors.primary} />
+                  <ThemedText size="xs" style={styles.statsCompactLabel}>
+                    {t('hospital.dashboard.births')}
+                  </ThemedText>
+                  <ThemedText size="xs" weight="bold" style={{ color: theme.colors.primary }}>
+                    {statsThisWeek.births}
+                  </ThemedText>
+                </ThemedView>
               </ThemedView>
-              <ThemedText size="base" weight="medium" style={styles.statsRowText}>
-                {t('hospital.dashboard.pregnancies')}
-              </ThemedText>
-              <ThemedText size="lg" weight="bold" style={styles.statsRowNumber}>
-                {statsThisWeek.pregnancies}
-              </ThemedText>
             </ThemedView>
 
-            <ThemedView 
-              variant="transparent" 
-              style={StyleSheet.flatten([styles.statsRow, { backgroundColor: theme.colors.secondary + '10' }])}
-            >
-              <ThemedView 
-                variant="transparent" 
-                style={StyleSheet.flatten([styles.statsRowIcon, { backgroundColor: theme.colors.primary + '20' }])}
-              >
-                <FontAwesome 
-                  name="child" 
-                  size={20} 
-                  color={theme.colors.primary} 
-                />
-              </ThemedView>
-              <ThemedText size="base" weight="medium" style={styles.statsRowText}>
-                {t('hospital.dashboard.births')}
-              </ThemedText>
-              <ThemedText size="lg" weight="bold" style={styles.statsRowNumber}>
-                {statsThisWeek.births}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-        </ThemedCard>
-
-        {/* 5️⃣ Statistiques - Ce Mois */}
-        <ThemedCard style={styles.statsCard}>
-          <ThemedView variant="transparent" style={styles.statsHeader}>
-            <ThemedText size="lg" weight="semibold" style={styles.statsTitle}>
-              {t('hospital.dashboard.thisMonth')}
-            </ThemedText>
-            <ThemedText variant="secondary" size="sm" style={styles.statsSubtitle}>
-              {t('hospital.dashboard.monthlyActivity')}
-            </ThemedText>
-          </ThemedView>
-          
-          <ThemedView variant="transparent" style={styles.statsGrid}>
-            <ThemedView variant="transparent" style={styles.statsColumn}>
-              <ThemedView 
-                variant="transparent" 
-                style={StyleSheet.flatten([styles.statsColumnIcon, { backgroundColor: theme.colors.success + '20' }])}
-              >
-                <FontAwesome 
-                  name="calendar" 
-                  size={24} 
-                  color={theme.colors.success} 
-                />
-              </ThemedView>
-              <ThemedText size="2xl" weight="bold" style={styles.statsColumnNumber}>
-                {statsThisMonth.pregnancies}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.statsColumnText}>
-                {t('hospital.dashboard.pregnancies')}
-              </ThemedText>
+            {/* Séparateur */}
+            <ThemedView variant="transparent" style={StyleSheet.flatten([styles.statsCompactSeparator, { backgroundColor: theme.colors.border }])}>
+              {null}
             </ThemedView>
 
-            <ThemedView variant="transparent" style={styles.statsColumn}>
-              <ThemedView 
-                variant="transparent" 
-                style={StyleSheet.flatten([styles.statsColumnIcon, { backgroundColor: theme.colors.primary + '20' }])}
-              >
-                <FontAwesome 
-                  name="calendar" 
-                  size={24} 
-                  color={theme.colors.primary} 
-                />
+            {/* Ce Mois - Design horizontal compact */}
+            <ThemedView variant="transparent" style={styles.statsCompactSection}>
+              <ThemedText variant="secondary" size="xs" style={styles.statsCompactPeriod}>
+                {t('hospital.dashboard.thisMonth')}
+              </ThemedText>
+              <ThemedView variant="transparent" style={styles.statsCompactRow}>
+                <ThemedView variant="transparent" style={styles.statsCompactItem}>
+                  <FontAwesome name="heart" size={12} color={theme.colors.success} />
+                  <ThemedText size="xs" style={styles.statsCompactLabel}>
+                    {t('hospital.dashboard.pregnancies')}
+                  </ThemedText>
+                  <ThemedText size="xs" weight="bold" style={{ color: theme.colors.success }}>
+                    {statsThisMonth.pregnancies}
+                  </ThemedText>
+                </ThemedView>
+                <ThemedView variant="transparent" style={styles.statsCompactDivider}>
+                  {null}
+                </ThemedView>
+                <ThemedView variant="transparent" style={styles.statsCompactItem}>
+                  <FontAwesome name="child" size={12} color={theme.colors.primary} />
+                  <ThemedText size="xs" style={styles.statsCompactLabel}>
+                    {t('hospital.dashboard.births')}
+                  </ThemedText>
+                  <ThemedText size="xs" weight="bold" style={{ color: theme.colors.primary }}>
+                    {statsThisMonth.births}
+                  </ThemedText>
+                </ThemedView>
               </ThemedView>
-              <ThemedText size="2xl" weight="bold" style={styles.statsColumnNumber}>
-                {statsThisMonth.births}
-              </ThemedText>
-              <ThemedText variant="secondary" size="sm" style={styles.statsColumnText}>
-                {t('hospital.dashboard.births')}
-              </ThemedText>
             </ThemedView>
           </ThemedView>
-        </ThemedCard>
-
-        {/* 6️⃣ Bouton Voir Historique */}
-        <PressableButton
-          variant="outline"
-          size="md"
-          onPress={() => handleQuickAction('history')}
-          style={styles.historyButton}
-        >
-          <FontAwesome name="history" size={16} color={theme.colors.primary} />
-          <ThemedText size="base" weight="semibold" style={{ color: theme.colors.primary, marginLeft: 8 }}>
-            {t('hospital.dashboard.viewHistory')}
-          </ThemedText>
-        </PressableButton>
+        </ThemedView>
       </ScrollView>
 
       {/* 7️⃣ Barre de navigation inférieure */}
@@ -845,71 +798,53 @@ const styles = StyleSheet.create({
     padding: 20,
     marginHorizontal: 16,
   },
-  statsHeader: {
-    marginBottom: 16,
+  statsCardCompact: {
+    marginBottom: 20,
+    marginHorizontal: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  statsTitle: {
-    marginBottom: 4,
-  },
-  statsSubtitle: {
-    lineHeight: 16,
-  },
-  statsRows: {
-    gap: 12,
-  },
-  statsRow: {
+  statsCompactHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
+    gap: 6,
+    marginBottom: 10,
   },
-  statsRowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsRowText: {
+  statsCompactTitle: {
     flex: 1,
   },
-  statsRowNumber: {
-    minWidth: 40,
-    textAlign: 'right',
+  statsCompactContent: {
+    gap: 8,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 16,
+  statsCompactSection: {
+    gap: 6,
   },
-  statsColumn: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(47, 149, 220, 0.05)',
-  },
-  statsColumnIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statsColumnNumber: {
+  statsCompactPeriod: {
     marginBottom: 4,
   },
-  statsColumnText: {
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  historyButton: {
-    marginBottom: 24,
+  statsCompactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    gap: 8,
+  },
+  statsCompactItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statsCompactLabel: {
+    flex: 1,
+  },
+  statsCompactDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  statsCompactSeparator: {
+    height: 1,
+    marginVertical: 8,
   },
   bottomNavigation: {
     position: 'absolute',

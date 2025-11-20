@@ -8,10 +8,9 @@
  * 4. Créer un fichier .env avec les variables
  */
 
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { initializeAuth, getAuth, getReactNativePersistence, Auth } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import { Auth, getAuth } from 'firebase/auth';
+import { Firestore, getFirestore } from 'firebase/firestore';
 
 // Configuration Firebase (à remplacer par vos vraies clés)
 const firebaseConfig = {
@@ -31,24 +30,15 @@ let auth: Auth;
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
   firestore = getFirestore(app);
-  // Initialiser Auth avec persistance AsyncStorage pour React Native
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
+  // Initialiser Auth - la persistance est automatique pour React Native dans Firebase v9+
+  auth = getAuth(app);
 } else {
   app = getApps()[0];
   firestore = getFirestore(app);
-  // Si l'app existe déjà, utiliser getAuth (qui récupère l'instance existante)
-  try {
-    auth = getAuth(app);
-  } catch (error) {
-    // Si getAuth échoue, initialiser avec AsyncStorage
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
-    });
-  }
+  // Récupérer l'instance Auth existante
+  auth = getAuth(app);
 }
 
-export { app, firestore, auth };
+export { app, auth, firestore };
 export default { app, firestore, auth };
 

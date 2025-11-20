@@ -4,18 +4,17 @@
  */
 
 import { firestore } from '@/services/firebase/config';
-import { 
-  doc, 
-  updateDoc, 
-  getDocs, 
+import NetInfo from '@react-native-community/netinfo';
+import {
   collection,
-  query,
-  where,
+  doc,
+  getDocs,
   orderBy,
+  query,
   Timestamp,
+  updateDoc,
   writeBatch
 } from 'firebase/firestore';
-import NetInfo from '@react-native-community/netinfo';
 
 export type ValidationStatus = 'pending' | 'validated' | 'rejected';
 export type RecordType = 'pregnancy' | 'birth';
@@ -156,7 +155,7 @@ export async function getRecordsForValidation(
 
     // Filtrer par statut côté client si spécifié
     if (status) {
-      records = records.filter((record) => {
+      records = records.filter((record: any) => {
         const recordStatus = record.validationStatus || 'pending';
         return recordStatus === status;
       });
@@ -187,7 +186,7 @@ export async function getRecordsForValidation(
 
       // Filtrer par statut côté client si spécifié
       if (status) {
-        records = records.filter((record) => {
+        records = records.filter((record: any) => {
           const recordStatus = record.validationStatus || 'pending';
           return recordStatus === status;
         });

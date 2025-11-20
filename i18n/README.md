@@ -14,13 +14,13 @@ Ce système permet à l'application GraceRegistry de supporter le **français** 
 
 ### Fonctionnalités
 
-✅ **Gestion globale de la langue** : La langue choisie est stockée dans AsyncStorage et appliquée à toute l'application
+**Gestion globale de la langue** : La langue choisie est stockée dans AsyncStorage et appliquée à toute l'application
 
-✅ **Changement en temps réel** : Quand l'utilisateur change de langue, tous les composants sont mis à jour automatiquement
+**Changement en temps réel** : Quand l'utilisateur change de langue, tous les composants sont mis à jour automatiquement
 
-✅ **Persistance** : La préférence de langue est sauvegardée et rechargée au démarrage de l'application
+**Persistance** : La préférence de langue est sauvegardée et rechargée au démarrage de l'application
 
-✅ **Type-safe** : Support TypeScript pour éviter les erreurs de clés
+**Type-safe** : Support TypeScript pour éviter les erreurs de clés
 
 ## Utilisation
 

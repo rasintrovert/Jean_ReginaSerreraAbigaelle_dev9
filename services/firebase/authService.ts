@@ -3,27 +3,27 @@
  * Gère l'authentification et les profils utilisateurs dans Firestore
  */
 
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User as FirebaseUser,
+import { UserRole } from '@/types/user';
+import {
   AuthError,
   AuthErrorCodes,
-  updatePassword,
+  createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  signOut as firebaseSignOut,
+  User as FirebaseUser,
+  onAuthStateChanged,
   reauthenticateWithCredential,
-  EmailAuthProvider
+  signInWithEmailAndPassword,
+  updatePassword
 } from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
+import {
+  doc,
+  getDoc,
   serverTimestamp,
-  Timestamp 
+  setDoc,
+  Timestamp
 } from 'firebase/firestore';
 import { auth, firestore } from './config';
-import { UserRole } from '@/types/user';
 
 export interface UserProfile {
   id: string;
@@ -42,24 +42,31 @@ export interface UserProfile {
 export function getAuthErrorMessage(error: AuthError): string {
   const code = error.code;
   
+  // Utiliser les codes d'erreur Firebase (chaînes de caractères)
   switch (code) {
     case AuthErrorCodes.INVALID_EMAIL:
+    case 'auth/invalid-email':
       return 'errors.auth.invalidEmail';
     case AuthErrorCodes.USER_DISABLED:
+    case 'auth/user-disabled':
       return 'errors.auth.userDisabled';
-    case AuthErrorCodes.USER_NOT_FOUND:
+    case 'auth/user-not-found':
       return 'errors.auth.userNotFound';
-    case AuthErrorCodes.WRONG_PASSWORD:
+    case 'auth/wrong-password':
       return 'errors.auth.wrongPassword';
     case AuthErrorCodes.EMAIL_EXISTS:
+    case 'auth/email-already-in-use':
       return 'errors.auth.emailAlreadyInUse';
     case AuthErrorCodes.WEAK_PASSWORD:
+    case 'auth/weak-password':
       return 'errors.auth.weakPassword';
     case AuthErrorCodes.TOO_MANY_ATTEMPTS_TRY_LATER:
+    case 'auth/too-many-requests':
       return 'errors.auth.tooManyRequests';
     case AuthErrorCodes.NETWORK_REQUEST_FAILED:
+    case 'auth/network-request-failed':
       return 'errors.auth.networkRequestFailed';
-    case AuthErrorCodes.REQUIRES_RECENT_LOGIN:
+    case 'auth/requires-recent-login':
       return 'errors.auth.requiresRecentLogin';
     default:
       return 'errors.auth.default';
