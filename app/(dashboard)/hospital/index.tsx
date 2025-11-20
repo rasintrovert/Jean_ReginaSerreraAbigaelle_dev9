@@ -15,6 +15,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View, ActivityIndicator } fro
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/authStore';
 import { getUserById, AdminUser } from '@/services/admin/userService';
+import { getRecordsForValidation } from '@/services/admin/adminService';
 
 export default function HospitalDashboard() {
   const router = useRouter();
@@ -26,6 +27,9 @@ export default function HospitalDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [profile, setProfile] = useState<AdminUser | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [statsThisWeek, setStatsThisWeek] = useState({ pregnancies: 0, births: 0 });
+  const [statsThisMonth, setStatsThisMonth] = useState({ pregnancies: 0, births: 0 });
   const { user } = useAuthStore();
 
   // Charger le profil utilisateur
@@ -49,6 +53,75 @@ export default function HospitalDashboard() {
 
     loadProfile();
   }, [user?.id]);
+
+  // Charger les statistiques
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+
+      // Filtrer uniquement les enregistrements validés ET créés par l'hôpital
+      const validatedPregnancies = allPregnancies.filter(
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
+      );
+      const validatedBirths = allBirths.filter(
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
+      );
+
+      // Calculer les dates
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Fonction pour obtenir la date de création
+      const getCreatedAt = (record: any): Date => {
+        if (record.createdAt?.toDate) {
+          return record.createdAt.toDate();
+        } else if (typeof record.createdAt === 'string') {
+          return new Date(record.createdAt);
+        } else if (record.createdAt instanceof Date) {
+          return record.createdAt;
+        }
+        return new Date(0);
+      };
+
+      // Compter pour cette semaine
+      const pregnanciesThisWeek = validatedPregnancies.filter((p: any) => {
+        const createdAt = getCreatedAt(p);
+        return createdAt >= weekAgo;
+      }).length;
+
+      const birthsThisWeek = validatedBirths.filter((b: any) => {
+        const createdAt = getCreatedAt(b);
+        return createdAt >= weekAgo;
+      }).length;
+
+      // Compter pour ce mois
+      const pregnanciesThisMonth = validatedPregnancies.filter((p: any) => {
+        const createdAt = getCreatedAt(p);
+        return createdAt >= monthAgo;
+      }).length;
+
+      const birthsThisMonth = validatedBirths.filter((b: any) => {
+        const createdAt = getCreatedAt(b);
+        return createdAt >= monthAgo;
+      }).length;
+
+      setStatsThisWeek({ pregnancies: pregnanciesThisWeek, births: birthsThisWeek });
+      setStatsThisMonth({ pregnancies: pregnanciesThisMonth, births: birthsThisMonth });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const handleQuickAction = (action: string) => {
     switch (action) {

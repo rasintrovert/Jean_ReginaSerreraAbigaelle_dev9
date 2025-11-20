@@ -16,6 +16,7 @@ import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollVi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRecordsForValidation } from '@/services/admin/adminService';
 import { formatDateSafe } from '@/utils/date';
+import { useAuthStore } from '@/store/authStore';
 
 type TabType = 'all' | 'pregnancy' | 'birth';
 type PeriodFilter = 'thisWeek' | 'thisMonth' | 'lastMonth';
@@ -40,6 +41,7 @@ export default function HospitalHistoryScreen() {
   const { isTablet } = useResponsive();
   const t = useTranslation();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('thisWeek');
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,12 +61,12 @@ export default function HospitalHistoryScreen() {
         getRecordsForValidation('birth'),
       ]);
 
-      // Filtrer uniquement les enregistrements validés
+      // Filtrer uniquement les enregistrements validés ET créés par l'hôpital
       const validatedPregnancies = allPregnancies.filter(
-        (r: any) => r.validationStatus === 'validated'
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
       );
       const validatedBirths = allBirths.filter(
-        (r: any) => r.validationStatus === 'validated'
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
       );
 
       // Transformer les grossesses en format Record

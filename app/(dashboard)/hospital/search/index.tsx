@@ -54,12 +54,12 @@ export default function HospitalSearchScreen() {
         getRecordsForValidation('birth'),
       ]);
 
-      // Filtrer uniquement les enregistrements validés
+      // Filtrer uniquement les enregistrements validés ET créés par l'hôpital
       const validatedPregnancies = allPregnancies.filter(
-        (r: any) => r.validationStatus === 'validated'
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
       );
       const validatedBirths = allBirths.filter(
-        (r: any) => r.validationStatus === 'validated'
+        (r: any) => r.validationStatus === 'validated' && r.recordedByType === 'hospital'
       );
 
       // Transformer les grossesses en format SearchRecord
