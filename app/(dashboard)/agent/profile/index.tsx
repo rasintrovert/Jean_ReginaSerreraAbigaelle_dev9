@@ -62,7 +62,7 @@ export default function AgentProfile() {
         const userProfile = await getUserById(user.id);
         setProfile(userProfile);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        if (__DEV__) console.error('Error loading profile:', error);
         Alert.alert(t('common.error'), t('agent.profile.loadError') || 'Erreur lors du chargement du profil');
       } finally {
         setIsLoading(false);
@@ -114,7 +114,7 @@ export default function AgentProfile() {
               await logout();
               router.replace('/(auth)/login' as any);
             } catch (error) {
-              console.error('Logout error:', error);
+              if (__DEV__) console.error('Logout error:', error);
               Alert.alert(t('common.error'), t('errors.generic'));
             }
           }

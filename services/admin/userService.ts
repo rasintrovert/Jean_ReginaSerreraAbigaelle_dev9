@@ -109,7 +109,7 @@ export async function createUser(userData: CreateUserData): Promise<AdminUser> {
 
     return createdUser;
   } catch (error: any) {
-    console.error('Error creating user:', error);
+    if (__DEV__) console.error('Error creating user:', error);
     throw error;
   }
 }
@@ -142,7 +142,7 @@ export async function getUserById(userId: string): Promise<AdminUser | null> {
       lastActivity: data.lastActivity?.toDate(),
     } as AdminUser;
   } catch (error) {
-    console.error('Error getting user by ID:', error);
+    if (__DEV__) console.error('Error getting user by ID:', error);
     throw error;
   }
 }
@@ -177,7 +177,7 @@ export async function getAllUsers(): Promise<AdminUser[]> {
 
     return users;
   } catch (error) {
-    console.error('Error getting all users:', error);
+    if (__DEV__) console.error('Error getting all users:', error);
     throw error;
   }
 }
@@ -214,7 +214,7 @@ export async function updateUser(userId: string, userData: UpdateUserData): Prom
       }
     }
   } catch (error) {
-    console.error('Error updating user:', error);
+    if (__DEV__) console.error('Error updating user:', error);
     throw error;
   }
 }
@@ -230,7 +230,7 @@ export async function toggleUserStatus(userId: string, status: 'active' | 'inact
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
-    console.error('Error toggling user status:', error);
+    if (__DEV__) console.error('Error toggling user status:', error);
     throw error;
   }
 }
@@ -242,7 +242,7 @@ export async function resetUserPassword(email: string): Promise<void> {
   try {
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
-    console.error('Error resetting password:', error);
+    if (__DEV__) console.error('Error resetting password:', error);
     throw error;
   }
 }
@@ -275,7 +275,7 @@ export async function getUserStatistics(userId: string): Promise<{
       validationsCount,
     };
   } catch (error) {
-    console.error('Error getting user statistics:', error);
+    if (__DEV__) console.error('Error getting user statistics:', error);
     return {
       recordsCount: 0,
       validationsCount: 0,

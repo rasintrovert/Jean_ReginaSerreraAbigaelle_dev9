@@ -75,7 +75,7 @@ export default function EmergencyScreen() {
         ]
       );
     } catch (error: any) {
-      console.error('Error sending emergency report:', error);
+      if (__DEV__) console.error('Error sending emergency report:', error);
       Alert.alert(
         t('common.error'), 
         error.message || t('agent.emergency.sendReport') || 'Erreur lors de l\'envoi du signalement'

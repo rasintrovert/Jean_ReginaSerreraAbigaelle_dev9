@@ -218,7 +218,7 @@ export default function AdminValidationScreen() {
 
       setRecords(allRecords);
     } catch (error) {
-      console.error('Error loading records:', error);
+      if (__DEV__) console.error('Error loading records:', error);
       Alert.alert(t('common.error'), t('admin.validation.loadError') || 'Erreur lors du chargement des enregistrements');
     } finally {
       setIsLoading(false);
@@ -328,7 +328,7 @@ export default function AdminValidationScreen() {
 
       setAllRecordsForCounts(allRecords);
     } catch (error) {
-      console.error('Error loading all records for counts:', error);
+      if (__DEV__) console.error('Error loading all records for counts:', error);
       // Ne pas afficher d'alerte pour cette fonction, c'est juste pour les compteurs
     }
   };
@@ -547,7 +547,7 @@ export default function AdminValidationScreen() {
               // Recharger les données
               await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
             } catch (error: any) {
-              console.error('Error validating record:', error);
+              if (__DEV__) console.error('Error validating record:', error);
               Alert.alert(t('common.error'), error.message || t('admin.validation.validateError') || 'Erreur lors de la validation');
             }
           },
@@ -580,7 +580,7 @@ export default function AdminValidationScreen() {
       // Recharger les données
       await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
     } catch (error: any) {
-      console.error('Error rejecting record:', error);
+      if (__DEV__) console.error('Error rejecting record:', error);
       Alert.alert(t('common.error'), error.message || t('admin.validation.rejectError') || 'Erreur lors du rejet');
     }
   };
@@ -654,7 +654,7 @@ export default function AdminValidationScreen() {
               // Recharger les données
               await Promise.all([loadRecords(), loadAllRecordsForCounts()]);
             } catch (error: any) {
-              console.error('Error bulk validating:', error);
+              if (__DEV__) console.error('Error bulk validating:', error);
               Alert.alert(t('common.error'), error.message || t('admin.validation.bulkValidateError') || 'Erreur lors de la validation en masse');
             }
           },

@@ -45,7 +45,7 @@ export default function HospitalDashboard() {
         const userProfile = await getUserById(user.id);
         setProfile(userProfile);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        if (__DEV__) console.error('Error loading profile:', error);
       } finally {
         setIsLoadingProfile(false);
       }
@@ -117,7 +117,7 @@ export default function HospitalDashboard() {
       setStatsThisWeek({ pregnancies: pregnanciesThisWeek, births: birthsThisWeek });
       setStatsThisMonth({ pregnancies: pregnanciesThisMonth, births: birthsThisMonth });
     } catch (error) {
-      console.error('Error loading stats:', error);
+      if (__DEV__) console.error('Error loading stats:', error);
     } finally {
       setIsLoadingStats(false);
     }

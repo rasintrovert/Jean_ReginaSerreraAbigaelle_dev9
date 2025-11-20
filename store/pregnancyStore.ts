@@ -67,9 +67,9 @@ export const usePregnancyStore = create<PregnancyState>((set, get) => ({
     // Sauvegarder dans SQLite (via syncService)
     try {
       await addToSyncQueue('pregnancy', newPregnancy);
-      console.log('Pregnancy ajoutée à la queue de synchronisation');
+      if (__DEV__) console.log('Pregnancy ajoutée à la queue de synchronisation');
     } catch (error) {
-      console.error('Erreur lors de l\'ajout à la queue:', error);
+      if (__DEV__) console.error('Erreur lors de l\'ajout à la queue:', error);
       // On continue quand même pour que l'utilisateur voie l'enregistrement
     }
     
@@ -97,9 +97,9 @@ export const usePregnancyStore = create<PregnancyState>((set, get) => ({
     // Supprimer de SQLite et Firestore
     try {
       await deleteRecord('pregnancy', id, firestoreId);
-      console.log('Pregnancy supprimée de SQLite et Firestore');
+      if (__DEV__) console.log('Pregnancy supprimée de SQLite et Firestore');
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      if (__DEV__) console.error('Erreur lors de la suppression:', error);
       // On continue quand même pour mettre à jour le store local
     }
     
@@ -132,9 +132,9 @@ export const usePregnancyStore = create<PregnancyState>((set, get) => ({
     try {
       const pregnancies = await loadPregnanciesFromSQLite();
       set({ pregnancies, isLoading: false });
-      console.log(`Loaded ${pregnancies.length} pregnancies from SQLite`);
+      if (__DEV__) console.log(`Loaded ${pregnancies.length} pregnancies from SQLite`);
     } catch (error) {
-      console.error('Error loading pregnancies:', error);
+      if (__DEV__) console.error('Error loading pregnancies:', error);
       set({ isLoading: false });
     }
   },

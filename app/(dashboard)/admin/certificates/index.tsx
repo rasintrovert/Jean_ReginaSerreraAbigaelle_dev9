@@ -94,7 +94,7 @@ export default function CertificatesManagementScreen() {
 
       setCertificates(certs);
     } catch (error) {
-      console.error('Error loading certificates:', error);
+      if (__DEV__) console.error('Error loading certificates:', error);
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +120,7 @@ export default function CertificatesManagementScreen() {
       setShowDetailsModal(false);
       setSelectedCertificate(null);
     } catch (error) {
-      console.error('Error updating certificate status:', error);
+      if (__DEV__) console.error('Error updating certificate status:', error);
       Alert.alert('Erreur', 'Impossible de mettre à jour le statut');
     } finally {
       setIsProcessing(false);

@@ -40,7 +40,7 @@ export default function AgentDashboard() {
         const userProfile = await getUserById(user.id);
         setProfile(userProfile);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        if (__DEV__) console.error('Error loading profile:', error);
       } finally {
         setIsLoadingProfile(false);
       }

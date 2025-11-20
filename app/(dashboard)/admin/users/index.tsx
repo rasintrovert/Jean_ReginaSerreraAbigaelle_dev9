@@ -87,7 +87,7 @@ export default function AdminUsersScreen() {
 
       setUsers(usersWithStats);
     } catch (error) {
-      console.error('Error loading users:', error);
+      if (__DEV__) console.error('Error loading users:', error);
       Alert.alert(
         t('common.error'),
         t('admin.users.loadError') || 'Erreur lors du chargement des utilisateurs'
@@ -259,7 +259,7 @@ export default function AdminUsersScreen() {
       setSelectedUser(null);
       setPassword('');
     } catch (error: any) {
-      console.error('Error saving user:', error);
+      if (__DEV__) console.error('Error saving user:', error);
       Alert.alert(
         t('common.error'),
         error.message || (t('admin.users.saveError') || 'Erreur lors de la sauvegarde')
@@ -291,7 +291,7 @@ export default function AdminUsersScreen() {
               Alert.alert(t('common.success'), t('admin.users.statusChanged') || 'Statut modifié avec succès');
               await loadUsers();
             } catch (error: any) {
-              console.error('Error toggling status:', error);
+              if (__DEV__) console.error('Error toggling status:', error);
               Alert.alert(
                 t('common.error'),
                 error.message || (t('admin.users.statusError') || 'Erreur lors de la modification du statut')
@@ -319,7 +319,7 @@ export default function AdminUsersScreen() {
               await resetUserPassword(user.email);
               Alert.alert(t('common.success'), t('admin.users.passwordReset') || 'Un email de réinitialisation a été envoyé');
             } catch (error: any) {
-              console.error('Error resetting password:', error);
+              if (__DEV__) console.error('Error resetting password:', error);
               Alert.alert(
                 t('common.error'),
                 error.message || (t('admin.users.passwordResetError') || 'Erreur lors de la réinitialisation du mot de passe')

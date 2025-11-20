@@ -65,7 +65,7 @@ export default function AdminDashboard() {
       const pendingReports = reports.filter(r => r.status === 'pending');
       setEmergencyCount(pendingReports.length);
     } catch (error) {
-      console.error('Error loading emergency count:', error);
+      if (__DEV__) console.error('Error loading emergency count:', error);
     }
   };
 
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
   };
 
   const handleNotificationPress = () => {
-    console.log('Notification button pressed, navigating to emergency page');
+    if (__DEV__) console.log('Notification button pressed, navigating to emergency page');
     try {
       router.push('/(dashboard)/admin/emergency' as any);
     } catch (error) {
@@ -660,7 +660,7 @@ export default function AdminDashboard() {
                 ]}
                 onPress={() => {
                   // TODO: Naviguer vers les détails du cas
-                  console.log('Voir détails:', record.id);
+                  if (__DEV__) console.log('Voir détails:', record.id);
                 }}
               >
                 <ThemedView 

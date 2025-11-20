@@ -68,7 +68,7 @@ export async function createEmergencyReport(
 
     return docRef.id;
   } catch (error) {
-    console.error('Error creating emergency report:', error);
+    if (__DEV__) console.error('Error creating emergency report:', error);
     throw error;
   }
 }
@@ -92,7 +92,7 @@ export async function getAllEmergencyReports(): Promise<EmergencyReport[]> {
       resolvedAt: doc.data().resolvedAt?.toDate(),
     })) as EmergencyReport[];
   } catch (error) {
-    console.error('Error fetching emergency reports:', error);
+    if (__DEV__) console.error('Error fetching emergency reports:', error);
     throw error;
   }
 }
@@ -114,7 +114,7 @@ export async function acknowledgeEmergencyReport(
       acknowledgedAt: serverTimestamp(),
     });
   } catch (error) {
-    console.error('Error acknowledging emergency report:', error);
+    if (__DEV__) console.error('Error acknowledging emergency report:', error);
     throw error;
   }
 }
@@ -138,7 +138,7 @@ export async function resolveEmergencyReport(
       notes: notes || '',
     });
   } catch (error) {
-    console.error('Error resolving emergency report:', error);
+    if (__DEV__) console.error('Error resolving emergency report:', error);
     throw error;
   }
 }

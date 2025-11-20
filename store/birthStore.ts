@@ -87,9 +87,9 @@ export const useBirthStore = create<BirthState>((set, get) => ({
     // Sauvegarder dans SQLite (via syncService)
     try {
       await addToSyncQueue('birth', newBirth);
-      console.log('Birth ajouté à la queue de synchronisation');
+      if (__DEV__) console.log('Birth ajouté à la queue de synchronisation');
     } catch (error) {
-      console.error('Erreur lors de l\'ajout à la queue:', error);
+      if (__DEV__) console.error('Erreur lors de l\'ajout à la queue:', error);
       // On continue quand même pour que l'utilisateur voie l'enregistrement
     }
     
@@ -117,9 +117,9 @@ export const useBirthStore = create<BirthState>((set, get) => ({
     // Supprimer de SQLite et Firestore
     try {
       await deleteRecord('birth', id, firestoreId);
-      console.log('Birth supprimé de SQLite et Firestore');
+      if (__DEV__) console.log('Birth supprimé de SQLite et Firestore');
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      if (__DEV__) console.error('Erreur lors de la suppression:', error);
       // On continue quand même pour mettre à jour le store local
     }
     
@@ -160,9 +160,9 @@ export const useBirthStore = create<BirthState>((set, get) => ({
     try {
       const births = await loadBirthsFromSQLite();
       set({ births, isLoading: false });
-      console.log(`Loaded ${births.length} births from SQLite`);
+      if (__DEV__) console.log(`Loaded ${births.length} births from SQLite`);
     } catch (error) {
-      console.error('Error loading births:', error);
+      if (__DEV__) console.error('Error loading births:', error);
       set({ isLoading: false });
     }
   },

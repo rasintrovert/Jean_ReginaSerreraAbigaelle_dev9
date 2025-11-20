@@ -176,7 +176,9 @@ export default function HospitalHelpScreen() {
           <PressableButton
             variant="outline"
             size="md"
-            onPress={() => console.log('Ouvrir vidéo')}
+            onPress={() => {
+              if (__DEV__) console.log('Ouvrir vidéo');
+            }}
           >
             <FontAwesome name="play" size={16} color={theme.colors.primary} />
             <ThemedText size="sm" style={{ color: theme.colors.primary, marginLeft: 8 }}>

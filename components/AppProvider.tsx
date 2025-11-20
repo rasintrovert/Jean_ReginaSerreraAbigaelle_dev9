@@ -149,28 +149,28 @@ export function AppProvider({ children }: AppProviderProps) {
       try {
         // Initialiser SQLite en premier
         await initDatabase();
-        console.log('Database initialized');
+        if (__DEV__) console.log('Database initialized');
       } catch (error) {
-        console.error('Database initialization error:', error);
+        if (__DEV__) console.error('Database initialization error:', error);
       }
       
       try {
         // Initialiser Firebase
         await import('@/services/firebase/config');
-        console.log('Firebase initialized');
+        if (__DEV__) console.log('Firebase initialized');
       } catch (error) {
-        console.error('Firebase initialization error:', error);
+        if (__DEV__) console.error('Firebase initialization error:', error);
       }
       
       // Initialiser l'authentification (écouter les changements d'état)
       initializeAuth();
-      console.log('Auth listener initialized');
+      if (__DEV__) console.log('Auth listener initialized');
       
       // Charger les données depuis SQLite
       try {
         await loadPregnancies();
         await loadBirths();
-        console.log('Data loaded from SQLite');
+        if (__DEV__) console.log('Data loaded from SQLite');
         
         // Synchroniser avec Firestore pour mettre à jour les données
         // Cela supprimera aussi les enregistrements qui n'existent plus dans Firestore
@@ -179,18 +179,18 @@ export function AppProvider({ children }: AppProviderProps) {
         if (isOnline) {
           try {
             await useSyncStore.getState().syncAll();
-            console.log('Data synced with Firestore');
+            if (__DEV__) console.log('Data synced with Firestore');
             
             // Recharger les données après la synchronisation
             await loadPregnancies();
             await loadBirths();
-            console.log('Data reloaded after sync');
+            if (__DEV__) console.log('Data reloaded after sync');
           } catch (error) {
-            console.error('Error syncing data:', error);
+            if (__DEV__) console.error('Error syncing data:', error);
           }
         }
       } catch (error) {
-        console.error('Error loading data:', error);
+        if (__DEV__) console.error('Error loading data:', error);
       }
       
       // Charger le thème et la langue
@@ -201,9 +201,9 @@ export function AppProvider({ children }: AppProviderProps) {
       try {
         const { initializeOrientation } = await import('@/store/orientationStore');
         await initializeOrientation();
-        console.log('Orientation initialized');
+        if (__DEV__) console.log('Orientation initialized');
       } catch (error) {
-        console.error('Error initializing orientation:', error);
+        if (__DEV__) console.error('Error initializing orientation:', error);
       }
       
       await new Promise(resolve => setTimeout(resolve, 100));

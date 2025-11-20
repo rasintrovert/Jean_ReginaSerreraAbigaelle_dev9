@@ -12,7 +12,7 @@ import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, FlatList, ActivityIndicator, Modal, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRecordsForValidation } from '@/services/admin/adminService';
 import { formatDateSafe } from '@/utils/date';
@@ -40,6 +40,8 @@ export default function HospitalSearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [allRecords, setAllRecords] = useState<SearchRecord[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<SearchRecord | null>(null);
+  const [recordDetails, setRecordDetails] = useState<any>(null);
 
   // Charger tous les enregistrements validés
   useEffect(() => {
@@ -151,7 +153,7 @@ export default function HospitalSearchScreen() {
 
       setAllRecords(combined);
     } catch (error) {
-      console.error('Error loading search records:', error);
+      if (__DEV__) console.error('Error loading search records:', error);
     } finally {
       setIsLoading(false);
     }
@@ -184,12 +186,30 @@ export default function HospitalSearchScreen() {
     }
   };
 
+  const handleViewDetails = async (record: SearchRecord) => {
+    try {
+      setSelectedRecord(record);
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+      
+      const allRecords = [...allPregnancies, ...allBirths];
+      const fullRecord = allRecords.find((r: any) => 
+        (r.id === record.firestoreId || r.firestoreId === record.firestoreId || r.id === record.id)
+      );
+      
+      setRecordDetails(fullRecord);
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error loading record details:', error);
+      }
+    }
+  };
+
   const renderRecordCard = ({ item }: { item: SearchRecord }) => (
     <Pressable
-      onPress={() => {
-        // TODO: Ouvrir la fiche détaillée
-        console.log('Ouvrir fiche:', item.id);
-      }}
+      onPress={() => handleViewDetails(item)}
     >
       <ThemedCard style={styles.recordCard}>
         <ThemedView variant="transparent" style={styles.recordHeader}>
@@ -337,6 +357,94 @@ export default function HospitalSearchScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Modal de détails */}
+      <Modal
+        visible={selectedRecord !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setSelectedRecord(null);
+          setRecordDetails(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalOverlayPressable}
+            onPress={() => {
+              setSelectedRecord(null);
+              setRecordDetails(null);
+            }}
+          />
+          <ThemedCard style={styles.modalContent}>
+            <ThemedView variant="transparent" style={styles.modalHeader}>
+              <ThemedText size="lg" weight="bold">
+                {selectedRecord?.type === 'pregnancy' 
+                  ? t('hospital.search.pregnancyDetails') || 'Détails de la grossesse'
+                  : t('hospital.search.birthDetails') || 'Détails de la naissance'}
+              </ThemedText>
+              <Pressable
+                onPress={() => {
+                  setSelectedRecord(null);
+                  setRecordDetails(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <FontAwesome name="times" size={20} color={theme.colors.text} />
+              </Pressable>
+            </ThemedView>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {recordDetails && (
+                <ThemedView variant="transparent" style={styles.modalBody}>
+                  <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                    {t('hospital.search.reference') || 'Référence'}
+                  </ThemedText>
+                  <ThemedText size="base" style={styles.modalValue}>
+                    {selectedRecord?.referenceNumber}
+                  </ThemedText>
+
+                  {selectedRecord?.type === 'pregnancy' ? (
+                    <>
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.search.mother') || 'Mère'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.motherFirstNames?.join(' ') || ''} {recordDetails.motherLastName || ''}
+                      </ThemedText>
+                    </>
+                  ) : (
+                    <>
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.search.child') || 'Enfant'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.childFirstNames?.join(' ') || ''} {recordDetails.childLastName || ''}
+                      </ThemedText>
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.search.mother') || 'Mère'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.motherFirstNames?.join(' ') || ''} {recordDetails.motherLastName || ''}
+                      </ThemedText>
+                      {recordDetails.fatherLastName && (
+                        <>
+                          <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                            {t('hospital.search.father') || 'Père'}
+                          </ThemedText>
+                          <ThemedText size="base" style={styles.modalValue}>
+                            {recordDetails.fatherFirstNames?.join(' ') || ''} {recordDetails.fatherLastName || ''}
+                          </ThemedText>
+                        </>
+                      )}
+                    </>
+                  )}
+                </ThemedView>
+              )}
+            </ScrollView>
+          </ThemedCard>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -455,5 +563,42 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   recordDate: {},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalOverlayPressable: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  modalBody: {
+    gap: 16,
+  },
+  modalLabel: {
+    marginBottom: 4,
+    color: '#666',
+  },
+  modalValue: {
+    marginBottom: 12,
+  },
 });
 

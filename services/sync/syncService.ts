@@ -67,19 +67,19 @@ export async function addToSyncQueue(
 export async function syncPendingRecords(): Promise<void> {
   // Empêcher les synchronisations concurrentes
   if (isSyncing) {
-    console.log('Sync already in progress, skipping...');
+    if (__DEV__) console.log('Sync already in progress, skipping...');
     return;
   }
 
   const netInfo = await NetInfo.fetch();
   if (!netInfo.isConnected) {
-    console.log('No internet connection. Sync skipped.');
+    if (__DEV__) console.log('No internet connection. Sync skipped.');
     return;
   }
 
   // Activer le verrou
   isSyncing = true;
-  console.log('Starting sync...');
+  if (__DEV__) console.log('Starting sync...');
 
   try {
     // S'assurer que la base de données est initialisée
@@ -108,7 +108,7 @@ export async function syncPendingRecords(): Promise<void> {
     }));
 
     if (pendingRecords.length === 0) {
-      console.log('No pending records to sync');
+      if (__DEV__) console.log('No pending records to sync');
       return;
     }
 
@@ -118,10 +118,10 @@ export async function syncPendingRecords(): Promise<void> {
     }
 
     const pendingCount = await getPendingCount();
-    console.log('Sync completed. Pending:', pendingCount);
+    if (__DEV__) console.log('Sync completed. Pending:', pendingCount);
     // Le store se mettra à jour via syncAll() qui appelle cette fonction
   } catch (error) {
-    console.error('Sync error:', error);
+    if (__DEV__) console.error('Sync error:', error);
     throw error; // Laisser le store gérer l'erreur
   } finally {
     // Libérer le verrou dans tous les cas
@@ -141,12 +141,12 @@ async function syncSingleRecord(record: PendingRecord): Promise<void> {
   );
 
   if (checkRow.length === 0) {
-    console.log(`Record ${record.id} already deleted, skipping...`);
+    if (__DEV__) console.log(`Record ${record.id} already deleted, skipping...`);
     return;
   }
 
   if (checkRow[0].status === 'syncing') {
-    console.log(`Record ${record.id} already syncing, skipping...`);
+    if (__DEV__) console.log(`Record ${record.id} already syncing, skipping...`);
     return;
   }
 
@@ -166,7 +166,7 @@ async function syncSingleRecord(record: PendingRecord): Promise<void> {
   );
 
   if (verifyRow.length === 0 || verifyRow[0].status !== 'syncing') {
-    console.log(`Record ${record.id} was already being synced by another process, skipping...`);
+    if (__DEV__) console.log(`Record ${record.id} was already being synced by another process, skipping...`);
     return;
   }
 
@@ -194,9 +194,9 @@ async function syncSingleRecord(record: PendingRecord): Promise<void> {
       [docRef.id, JSON.stringify({ ...record.data, firestoreId: docRef.id }), Date.now(), Date.now()]
     );
 
-    console.log(`Synced ${record.type} ${record.id} -> ${docRef.id}`);
+    if (__DEV__) console.log(`Synced ${record.type} ${record.id} -> ${docRef.id}`);
   } catch (error: any) {
-    console.error(`Sync failed for ${record.id}:`, error);
+    if (__DEV__) console.error(`Sync failed for ${record.id}:`, error);
 
     // Marquer comme échoué et incrémenter retry_count
     await runSql(
@@ -220,7 +220,7 @@ export async function pullFromFirestore(
 ): Promise<void> {
   const netInfo = await NetInfo.fetch();
   if (!netInfo.isConnected) {
-    console.log('No internet connection. Pull skipped.');
+    if (__DEV__) console.log('No internet connection. Pull skipped.');
     return;
   }
 
@@ -266,7 +266,7 @@ export async function pullFromFirestore(
     for (const existingId of existingIds) {
       if (!firestoreIds.has(existingId)) {
         await runSql(`DELETE FROM ${cacheTable} WHERE id = ?`, [existingId]);
-        console.log(`Removed ${type} ${existingId} from local cache (not in Firestore)`);
+        if (__DEV__) console.log(`Removed ${type} ${existingId} from local cache (not in Firestore)`);
       }
     }
 
@@ -277,9 +277,9 @@ export async function pullFromFirestore(
       [`last_sync_${type}`, Date.now().toString(), Date.now()]
     );
 
-    console.log(`Pulled ${querySnapshot.size} ${type} records from Firestore`);
+    if (__DEV__) console.log(`Pulled ${querySnapshot.size} ${type} records from Firestore`);
   } catch (error) {
-    console.error(`Pull error for ${type}:`, error);
+    if (__DEV__) console.error(`Pull error for ${type}:`, error);
     throw error;
   }
 }
@@ -394,10 +394,10 @@ export async function loadPregnanciesFromSQLite(): Promise<any[]> {
       }
     });
 
-    console.log(`Loaded ${uniquePregnancies.size} unique pregnancies (${pendingRows.length} pending, ${syncedRows.length} synced)`);
+    if (__DEV__) console.log(`Loaded ${uniquePregnancies.size} unique pregnancies (${pendingRows.length} pending, ${syncedRows.length} synced)`);
     return Array.from(uniquePregnancies.values());
   } catch (error) {
-    console.error('Error loading pregnancies from SQLite:', error);
+    if (__DEV__) console.error('Error loading pregnancies from SQLite:', error);
     return [];
   }
 }
@@ -435,9 +435,9 @@ export async function deleteRecord(
         try {
           const collectionName = type === 'pregnancy' ? 'pregnancies' : 'births';
           await deleteDoc(doc(firestore, collectionName, firestoreId));
-          console.log(`Deleted ${type} ${firestoreId} from Firestore`);
+          if (__DEV__) console.log(`Deleted ${type} ${firestoreId} from Firestore`);
         } catch (error) {
-          console.error(`Error deleting from Firestore:`, error);
+          if (__DEV__) console.error(`Error deleting from Firestore:`, error);
           // On continue même si la suppression Firestore échoue
         }
       }
@@ -530,10 +530,10 @@ export async function loadBirthsFromSQLite(): Promise<any[]> {
       }
     });
 
-    console.log(`Loaded ${uniqueBirths.size} unique births (${pendingRows.length} pending, ${syncedRows.length} synced)`);
+    if (__DEV__) console.log(`Loaded ${uniqueBirths.size} unique births (${pendingRows.length} pending, ${syncedRows.length} synced)`);
     return Array.from(uniqueBirths.values());
   } catch (error) {
-    console.error('Error loading births from SQLite:', error);
+    if (__DEV__) console.error('Error loading births from SQLite:', error);
     return [];
   }
 }

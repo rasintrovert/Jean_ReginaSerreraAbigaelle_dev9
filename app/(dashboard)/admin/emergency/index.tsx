@@ -52,7 +52,7 @@ export default function AdminEmergencyScreen() {
       const allReports = await getAllEmergencyReports();
       setReports(allReports);
     } catch (error) {
-      console.error('Error loading emergency reports:', error);
+      if (__DEV__) console.error('Error loading emergency reports:', error);
       Alert.alert(t('common.error'), 'Erreur lors du chargement des signalements');
     } finally {
       setIsLoading(false);
@@ -111,7 +111,7 @@ export default function AdminEmergencyScreen() {
         setSelectedReport(null);
       }
     } catch (error) {
-      console.error('Error acknowledging report:', error);
+      if (__DEV__) console.error('Error acknowledging report:', error);
       Alert.alert(t('common.error'), 'Erreur lors de la prise en charge');
     } finally {
       setIsProcessing(false);

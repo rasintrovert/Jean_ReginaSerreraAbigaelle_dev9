@@ -189,7 +189,7 @@ export default function AdminStatisticsScreen() {
 
       setTimelineData(monthsData);
     } catch (error) {
-      console.error('Error loading statistics:', error);
+      if (__DEV__) console.error('Error loading statistics:', error);
     } finally {
       setIsLoading(false);
     }

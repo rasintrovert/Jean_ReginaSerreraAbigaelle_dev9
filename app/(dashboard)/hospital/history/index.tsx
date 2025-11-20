@@ -12,7 +12,7 @@ import { format, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { FlatList, Pressable, Text as RNText, TextInput as RNTextInput, ScrollView, StyleSheet, ActivityIndicator, Modal, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRecordsForValidation } from '@/services/admin/adminService';
 import { formatDateSafe } from '@/utils/date';
@@ -47,6 +47,8 @@ export default function HospitalHistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [records, setRecords] = useState<Record[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
+  const [recordDetails, setRecordDetails] = useState<any>(null);
 
   // Charger les enregistrements validés depuis Firestore
   useEffect(() => {
@@ -188,7 +190,7 @@ export default function HospitalHistoryScreen() {
 
       setRecords(filtered);
     } catch (error) {
-      console.error('Error loading hospital history:', error);
+      if (__DEV__) console.error('Error loading hospital history:', error);
     } finally {
       setIsLoading(false);
     }
@@ -243,12 +245,31 @@ export default function HospitalHistoryScreen() {
     return items;
   };
 
+  const handleViewDetails = async (record: Record) => {
+    try {
+      setSelectedRecord(record);
+      // Charger les détails complets depuis Firestore
+      const [allPregnancies, allBirths] = await Promise.all([
+        getRecordsForValidation('pregnancy'),
+        getRecordsForValidation('birth'),
+      ]);
+      
+      const allRecords = [...allPregnancies, ...allBirths];
+      const fullRecord = allRecords.find((r: any) => 
+        (r.id === record.firestoreId || r.firestoreId === record.firestoreId || r.id === record.id)
+      );
+      
+      setRecordDetails(fullRecord);
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error loading record details:', error);
+      }
+    }
+  };
+
   const renderPregnancyCard = (record: Record) => (
     <Pressable
-      onPress={() => {
-        // TODO: Ouvrir la fiche détaillée
-        console.log('Ouvrir fiche grossesse:', record.id);
-      }}
+      onPress={() => handleViewDetails(record)}
     >
       <ThemedCard style={styles.recordCard}>
         <ThemedView variant="transparent" style={styles.recordHeader}>
@@ -293,10 +314,7 @@ export default function HospitalHistoryScreen() {
 
   const renderBirthCard = (record: Record) => (
     <Pressable
-      onPress={() => {
-        // TODO: Ouvrir la fiche détaillée
-        console.log('Ouvrir fiche naissance:', record.id);
-      }}
+      onPress={() => handleViewDetails(record)}
     >
       <ThemedCard style={styles.recordCard}>
         <ThemedView variant="transparent" style={styles.recordHeader}>
@@ -694,6 +712,139 @@ export default function HospitalHistoryScreen() {
           </>
         )}
       </ThemedView>
+
+      {/* Modal de détails */}
+      <Modal
+        visible={selectedRecord !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setSelectedRecord(null);
+          setRecordDetails(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalOverlayPressable}
+            onPress={() => {
+              setSelectedRecord(null);
+              setRecordDetails(null);
+            }}
+          />
+          <ThemedCard style={styles.modalContent}>
+            <ThemedView variant="transparent" style={styles.modalHeader}>
+              <ThemedText size="lg" weight="bold">
+                {selectedRecord?.type === 'pregnancy' 
+                  ? t('hospital.history.pregnancyDetails') || 'Détails de la grossesse'
+                  : t('hospital.history.birthDetails') || 'Détails de la naissance'}
+              </ThemedText>
+              <Pressable
+                onPress={() => {
+                  setSelectedRecord(null);
+                  setRecordDetails(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <FontAwesome name="times" size={20} color={theme.colors.text} />
+              </Pressable>
+            </ThemedView>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {recordDetails && (
+                <ThemedView variant="transparent" style={styles.modalBody}>
+                  <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                    {t('hospital.history.reference') || 'Référence'}
+                  </ThemedText>
+                  <ThemedText size="base" style={styles.modalValue}>
+                    {selectedRecord?.referenceNumber}
+                  </ThemedText>
+
+                  {selectedRecord?.type === 'pregnancy' ? (
+                    <>
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.history.mother') || 'Mère'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.motherFirstNames?.join(' ') || ''} {recordDetails.motherLastName || ''}
+                      </ThemedText>
+                      {recordDetails.motherBirthDate && (
+                        <>
+                          <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                            {t('hospital.history.birthDate') || 'Date de naissance'}
+                          </ThemedText>
+                          <ThemedText size="base" style={styles.modalValue}>
+                            {formatDateSafe(recordDetails.motherBirthDate, 'dd/MM/yyyy')}
+                          </ThemedText>
+                        </>
+                      )}
+                      {recordDetails.motherAddress && (
+                        <>
+                          <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                            {t('hospital.history.address') || 'Adresse'}
+                          </ThemedText>
+                          <ThemedText size="base" style={styles.modalValue}>
+                            {recordDetails.motherAddress}
+                          </ThemedText>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.history.child') || 'Enfant'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.childFirstNames?.join(' ') || ''} {recordDetails.childLastName || ''}
+                      </ThemedText>
+                      {recordDetails.birthDate && (
+                        <>
+                          <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                            {t('hospital.history.birthDate') || 'Date de naissance'}
+                          </ThemedText>
+                          <ThemedText size="base" style={styles.modalValue}>
+                            {formatDateSafe(recordDetails.birthDate, 'dd/MM/yyyy')}
+                            {recordDetails.birthTime && ` à ${recordDetails.birthTime}`}
+                          </ThemedText>
+                        </>
+                      )}
+                      <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                        {t('hospital.history.mother') || 'Mère'}
+                      </ThemedText>
+                      <ThemedText size="base" style={styles.modalValue}>
+                        {recordDetails.motherFirstNames?.join(' ') || ''} {recordDetails.motherLastName || ''}
+                      </ThemedText>
+                      {recordDetails.fatherLastName && (
+                        <>
+                          <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                            {t('hospital.history.father') || 'Père'}
+                          </ThemedText>
+                          <ThemedText size="base" style={styles.modalValue}>
+                            {recordDetails.fatherFirstNames?.join(' ') || ''} {recordDetails.fatherLastName || ''}
+                          </ThemedText>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                    {t('hospital.history.recordedBy') || 'Enregistré par'}
+                  </ThemedText>
+                  <ThemedText size="base" style={styles.modalValue}>
+                    {selectedRecord?.recordedBy}
+                  </ThemedText>
+
+                  <ThemedText size="sm" weight="semibold" style={styles.modalLabel}>
+                    {t('hospital.history.date') || 'Date d\'enregistrement'}
+                  </ThemedText>
+                  <ThemedText size="base" style={styles.modalValue}>
+                    {selectedRecord?.date ? formatDate(selectedRecord.date) : '-'}
+                  </ThemedText>
+                </ThemedView>
+              )}
+            </ScrollView>
+          </ThemedCard>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -865,5 +1016,42 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalOverlayPressable: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  modalBody: {
+    gap: 16,
+  },
+  modalLabel: {
+    marginBottom: 4,
+    color: '#666',
+  },
+  modalValue: {
+    marginBottom: 12,
   },
 });

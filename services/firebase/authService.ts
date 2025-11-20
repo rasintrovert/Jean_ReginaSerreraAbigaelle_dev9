@@ -89,7 +89,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    if (__DEV__) console.error('Error fetching user profile:', error);
     throw error;
   }
 }
@@ -130,7 +130,7 @@ export async function createOrUpdateUserProfile(
       });
     }
   } catch (error) {
-    console.error('Error creating/updating user profile:', error);
+    if (__DEV__) console.error('Error creating/updating user profile:', error);
     throw error;
   }
 }
@@ -152,7 +152,7 @@ export async function login(email: string, password: string): Promise<UserProfil
     
     return profile;
   } catch (error: any) {
-    console.error('Login error:', error);
+    if (__DEV__) console.error('Login error:', error);
     throw error;
   }
 }
@@ -191,7 +191,7 @@ export async function register(
     
     return profile;
   } catch (error: any) {
-    console.error('Register error:', error);
+    if (__DEV__) console.error('Register error:', error);
     throw error;
   }
 }
@@ -203,7 +203,7 @@ export async function signOut(): Promise<void> {
   try {
     await firebaseSignOut(auth);
   } catch (error) {
-    console.error('Sign out error:', error);
+    if (__DEV__) console.error('Sign out error:', error);
     throw error;
   }
 }
@@ -251,7 +251,7 @@ export async function changePassword(
     // Mettre à jour le mot de passe
     await updatePassword(user, newPassword);
   } catch (error: any) {
-    console.error('Change password error:', error);
+    if (__DEV__) console.error('Change password error:', error);
     throw error;
   }
 }

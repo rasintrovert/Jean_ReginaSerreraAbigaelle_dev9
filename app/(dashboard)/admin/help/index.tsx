@@ -182,7 +182,7 @@ export default function AdminHelpScreen() {
             size="md"
             onPress={() => {
               // TODO: Ouvrir la vidéo
-              console.log('Ouvrir vidéo');
+              if (__DEV__) console.log('Ouvrir vidéo');
             }}
             accessibilityLabel={t('admin.help.guideVideoButton') || t('agent.help.guideVideoButton')}
           >

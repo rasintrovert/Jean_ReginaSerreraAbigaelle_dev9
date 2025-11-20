@@ -83,7 +83,7 @@ export default function LoginScreen() {
         router.replace(`/(dashboard)/${user.role}` as any);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      if (__DEV__) console.error('Login error:', error);
       // L'erreur est déjà gérée dans le store et affichée via la variable `error`
     }
   };

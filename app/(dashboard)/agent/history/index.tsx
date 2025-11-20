@@ -62,7 +62,7 @@ export default function AgentHistory() {
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
-          console.log('Duplicate pregnancy skipped:', uniqueId);
+          if (__DEV__) console.log('Duplicate pregnancy skipped:', uniqueId);
           return;
         }
         seenIds.add(uniqueId);
@@ -84,7 +84,7 @@ export default function AgentHistory() {
           createdAt: pregnancy.createdAt, // Garder la date originale pour le tri
         });
       } catch (error) {
-        console.error('Error processing pregnancy:', error);
+        if (__DEV__) console.error('Error processing pregnancy:', error);
       }
     });
 
@@ -96,7 +96,7 @@ export default function AgentHistory() {
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
-          console.log('Duplicate birth skipped:', uniqueId);
+          if (__DEV__) console.log('Duplicate birth skipped:', uniqueId);
           return;
         }
         seenIds.add(uniqueId);
@@ -123,7 +123,7 @@ export default function AgentHistory() {
           createdAt: birth.createdAt, // Garder la date originale pour le tri
         });
       } catch (error) {
-        console.error('Error processing birth:', error);
+        if (__DEV__) console.error('Error processing birth:', error);
       }
     });
 
