@@ -165,7 +165,7 @@ export default function AdminDashboard() {
 
       setRecentRecords(sortedRecords);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      if (__DEV__) console.error('Error loading dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
     try {
       router.push('/(dashboard)/admin/emergency' as any);
     } catch (error) {
-      console.error('Error navigating to emergency page:', error);
+      if (__DEV__) console.error('Error navigating to emergency page:', error);
     }
   };
 
