@@ -21,7 +21,13 @@ Ce guide présente l'utilisation complète de l'application GraceRegistry pour t
 
 ### Variables d'environnement
 
-Le fichier `.env` avec les identifiants Firebase est déjà configuré pour ce projet. Aucune action supplémentaire n'est nécessaire.
+Le fichier `.env` contenant les identifiants Firebase vous a été envoyé par email. Pour utiliser l'application :
+
+1. Placez le fichier `.env` à la racine du projet (même niveau que le fichier `package.json`)
+2. Assurez-vous que le fichier s'appelle bien `.env` (avec le point au début)
+3. Redémarrez l'application si elle était déjà en cours d'exécution
+
+Aucune autre configuration n'est nécessaire.
 
 ## Authentification
 
