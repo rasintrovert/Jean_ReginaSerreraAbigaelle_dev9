@@ -3,6 +3,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useLanguageStore } from '@/store/languageStore';
 import { loginSchema } from '@/utils/validation';
 import { FontAwesome } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,13 +27,18 @@ const ROLES: { value: LoginFormData['role']; label: string; labelKreyol: string 
 export default function LoginScreen() {
   const router = useRouter();
   const systemColorScheme = useColorScheme();
-  const [language, setLanguage] = useState<'kreyol' | 'francais'>('kreyol');
+  const { language, setLanguage, loadLanguage } = useLanguageStore();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<LoginFormData['role'] | ''>('');
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const { login, isLoading, error, clearError } = useAuthStore();
   const { appTheme, setAppTheme, loadTheme } = useThemeStore();
   const t = useTranslation();
+
+  // Charger la langue sauvegardée au démarrage
+  useEffect(() => {
+    loadLanguage();
+  }, [loadLanguage]);
 
   // Charger le thème sauvegardé au démarrage
   useEffect(() => {
@@ -88,7 +94,7 @@ export default function LoginScreen() {
     }
   };
 
-  const isKreyol = language === 'kreyol';
+  const isKreyol = language === 'ht';
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
@@ -372,14 +378,14 @@ export default function LoginScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.languageButton, 
-                { backgroundColor: language === 'kreyol' ? languageButtonActiveBg : languageButtonInactiveBg },
+                { backgroundColor: language === 'ht' ? languageButtonActiveBg : languageButtonInactiveBg },
                 pressed && { opacity: 0.7 }
               ]}
-              onPress={() => setLanguage('kreyol')}
+              onPress={() => setLanguage('ht')}
             >
               <Text style={[
                 styles.languageButtonText, 
-                { color: language === 'kreyol' ? '#fff' : textColor }
+                { color: language === 'ht' ? '#fff' : textColor }
               ]}>
                 Kreyòl
               </Text>
@@ -387,14 +393,14 @@ export default function LoginScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.languageButton, 
-                { backgroundColor: language === 'francais' ? languageButtonActiveBg : languageButtonInactiveBg },
+                { backgroundColor: language === 'fr' ? languageButtonActiveBg : languageButtonInactiveBg },
                 pressed && { opacity: 0.7 }
               ]}
-              onPress={() => setLanguage('francais')}
+              onPress={() => setLanguage('fr')}
             >
               <Text style={[
                 styles.languageButtonText, 
-                { color: language === 'francais' ? '#fff' : textColor }
+                { color: language === 'fr' ? '#fff' : textColor }
               ]}>
                 Français
               </Text>
