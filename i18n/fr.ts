@@ -331,6 +331,12 @@ export const fr = {
       darkMode: 'Mode sombre',
       lightMode: 'Mode clair',
       autoMode: 'Mode automatique',
+      // Orientation
+      orientationTitle: 'Orientation',
+      orientationSubtitle: 'Choisissez l\'orientation de l\'écran',
+      orientationPortrait: 'Portrait',
+      orientationLandscape: 'Paysage',
+      orientationAuto: 'Automatique',
       // À propos
       aboutTitle: 'À propos de l\'application',
       aboutSubtitle: 'Informations sur Grace Registry',

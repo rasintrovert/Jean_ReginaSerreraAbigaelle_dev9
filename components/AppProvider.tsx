@@ -196,6 +196,16 @@ export function AppProvider({ children }: AppProviderProps) {
       // Charger le thème et la langue
       await loadTheme();
       await loadLanguage();
+      
+      // Initialiser l'orientation
+      try {
+        const { initializeOrientation } = await import('@/store/orientationStore');
+        await initializeOrientation();
+        console.log('✅ Orientation initialized');
+      } catch (error) {
+        console.error('❌ Error initializing orientation:', error);
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 100));
       setThemeLoaded(true);
     };

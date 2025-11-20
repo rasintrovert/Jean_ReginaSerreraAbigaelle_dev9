@@ -9,6 +9,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLanguageStore } from '@/store/languageStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useOrientationStore } from '@/store/orientationStore';
 import { useTheme } from '@/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ export default function HospitalSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguageStore();
   const { appTheme, setAppTheme } = useThemeStore();
+  const { orientationPreference, setOrientationPreference } = useOrientationStore();
 
   const [autoSync, setAutoSync] = useState(true);
   const [wifiOnly, setWifiOnly] = useState(false);
@@ -242,6 +244,79 @@ export default function HospitalSettingsScreen() {
                 }}
               >
                 {t('hospital.settings.autoMode') || t('agent.settings.autoMode')}
+              </ThemedText>
+            </PressableButton>
+          </View>
+        </ThemedCard>
+
+        {/* Section Orientation */}
+        <ThemedCard style={styles.sectionCard}>
+          <ThemedView variant="transparent" style={styles.sectionHeader}>
+            <FontAwesome
+              name="mobile"
+              size={20}
+              color={theme.colors.primary}
+              style={styles.sectionIcon}
+            />
+            <ThemedView variant="transparent" style={styles.sectionHeaderText}>
+              <ThemedText size="lg" weight="semibold" style={styles.sectionTitle}>
+                {t('hospital.settings.orientationTitle') || t('agent.settings.orientationTitle')}
+              </ThemedText>
+              <ThemedText variant="secondary" size="sm" style={styles.sectionSubtitle}>
+                {t('hospital.settings.orientationSubtitle') || t('agent.settings.orientationSubtitle')}
+              </ThemedText>
+            </ThemedView>
+          </ThemedView>
+
+          <View style={styles.optionsContainer}>
+            <PressableButton
+              variant={orientationPreference === 'portrait' ? 'primary' : 'outline'}
+              size="sm"
+              style={styles.themeButton}
+              onPress={() => setOrientationPreference('portrait')}
+            >
+              <ThemedText
+                size="sm"
+                weight="semibold"
+                style={{
+                  color: orientationPreference === 'portrait' ? '#fff' : theme.colors.primary,
+                }}
+              >
+                {t('hospital.settings.orientationPortrait') || t('agent.settings.orientationPortrait')}
+              </ThemedText>
+            </PressableButton>
+
+            <PressableButton
+              variant={orientationPreference === 'landscape' ? 'primary' : 'outline'}
+              size="sm"
+              style={styles.themeButton}
+              onPress={() => setOrientationPreference('landscape')}
+            >
+              <ThemedText
+                size="sm"
+                weight="semibold"
+                style={{
+                  color: orientationPreference === 'landscape' ? '#fff' : theme.colors.primary,
+                }}
+              >
+                {t('hospital.settings.orientationLandscape') || t('agent.settings.orientationLandscape')}
+              </ThemedText>
+            </PressableButton>
+
+            <PressableButton
+              variant={orientationPreference === 'auto' ? 'primary' : 'outline'}
+              size="sm"
+              style={styles.themeButton}
+              onPress={() => setOrientationPreference('auto')}
+            >
+              <ThemedText
+                size="sm"
+                weight="semibold"
+                style={{
+                  color: orientationPreference === 'auto' ? '#fff' : theme.colors.primary,
+                }}
+              >
+                {t('hospital.settings.orientationAuto') || t('agent.settings.orientationAuto')}
               </ThemedText>
             </PressableButton>
           </View>

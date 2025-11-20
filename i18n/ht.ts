@@ -331,6 +331,12 @@ export const ht = {
       darkMode: 'Mòd fènwa',
       lightMode: 'Mòd klè',
       autoMode: 'Mòd otomatik',
+      // Orientation
+      orientationTitle: 'Orientasyon',
+      orientationSubtitle: 'Chwazi orientasyon ekran an',
+      orientationPortrait: 'Pòtrè',
+      orientationLandscape: 'Peyizaj',
+      orientationAuto: 'Ototomatik',
       // À propos
       aboutTitle: 'Sou Aplikasyon an',
       aboutSubtitle: 'Enfòmasyon sou Grace Registry',
