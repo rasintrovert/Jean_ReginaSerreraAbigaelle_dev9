@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { getUserById, AdminUser } from '@/services/admin/userService';
 import { formatDateSafe } from '@/utils/date';
+import { changePassword } from '@/services/firebase/authService';
+import { getAuthErrorMessage } from '@/services/firebase/authService';
 
 // Schéma de validation pour le mot de passe
 const passwordSchema = z.object({
@@ -83,14 +85,14 @@ export default function AgentProfile() {
     setIsSaving(true);
     
     try {
-      // Simulation de changement de mot de passe
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await changePassword(data.currentPassword, data.newPassword);
       
       Alert.alert(t('common.success'), t('agent.profile.passwordChanged'));
       resetPasswordForm();
       setShowPasswordModal(false);
-    } catch (error) {
-      Alert.alert(t('common.error'), t('agent.profile.passwordError'));
+    } catch (error: any) {
+      const errorMessage = getAuthErrorMessage(error);
+      Alert.alert(t('common.error'), t(errorMessage) || t('agent.profile.passwordError'));
     } finally {
       setIsSaving(false);
     }

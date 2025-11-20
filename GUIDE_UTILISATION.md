@@ -21,23 +21,35 @@ Ce guide présente l'utilisation complète de l'application GraceRegistry pour t
 
 ### Variables d'environnement
 
-Créez un fichier `.env` à la racine du projet avec les variables suivantes :
-
-```
-EXPO_PUBLIC_FIREBASE_API_KEY=votre_api_key
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=votre_auth_domain
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=votre_project_id
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=votre_storage_bucket
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=votre_sender_id
-EXPO_PUBLIC_FIREBASE_APP_ID=votre_app_id
-```
+Le fichier `.env` avec les identifiants Firebase est déjà configuré pour ce projet. Aucune action supplémentaire n'est nécessaire.
 
 ## Authentification
+
+### Comptes de test disponibles
+
+Pour tester l'application, vous pouvez utiliser les comptes suivants qui ont été créés dans Firebase :
+
+#### Compte Agent
+- **Email** : `agent@test.com` (ou l'email que vous avez utilisé lors de la création)
+- **Mot de passe** : `agent123` (ou le mot de passe que vous avez défini)
+- **Rôle** : Agent de terrain
+
+#### Compte Administrateur
+- **Email** : `admin@test.com` (ou l'email que vous avez utilisé lors de la création)
+- **Mot de passe** : `admin123` (ou le mot de passe que vous avez défini)
+- **Rôle** : Administrateur
+
+#### Compte Hôpital
+- **Email** : `hospital@test.com` (ou l'email que vous avez utilisé lors de la création)
+- **Mot de passe** : `hospital123` (ou le mot de passe que vous avez défini)
+- **Rôle** : Hôpital
+
+**Note** : Si vous avez créé vos propres comptes de test avec des identifiants différents, utilisez les emails et mots de passe que vous avez définis lors de la création des utilisateurs dans Firebase Authentication.
 
 ### Connexion
 
 1. Ouvrez l'application
-2. Entrez votre adresse email et votre mot de passe
+2. Entrez votre adresse email et votre mot de passe (utilisez un des comptes ci-dessus)
 3. Cliquez sur "Se connecter"
 4. Vous serez redirigé vers le dashboard correspondant à votre rôle
 

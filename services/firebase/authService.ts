@@ -10,7 +10,10 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   AuthError,
-  AuthErrorCodes
+  AuthErrorCodes,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { 
   doc, 
@@ -219,5 +222,37 @@ export function onAuthStateChange(
   callback: (user: FirebaseUser | null) => void
 ): () => void {
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Changer le mot de passe de l'utilisateur actuellement connecté
+ * Nécessite une réauthentification pour des raisons de sécurité
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    const user = auth.currentUser;
+    
+    if (!user || !user.email) {
+      throw new Error('No user is currently signed in');
+    }
+
+    // Créer les credentials pour la réauthentification
+    const credential = EmailAuthProvider.credential(
+      user.email,
+      currentPassword
+    );
+
+    // Réauthentifier l'utilisateur
+    await reauthenticateWithCredential(user, credential);
+
+    // Mettre à jour le mot de passe
+    await updatePassword(user, newPassword);
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    throw error;
+  }
 }
 

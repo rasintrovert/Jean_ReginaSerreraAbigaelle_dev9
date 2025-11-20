@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { getUserById, AdminUser } from '@/services/admin/userService';
 import { formatDateSafe } from '@/utils/date';
+import { changePassword, getAuthErrorMessage } from '@/services/firebase/authService';
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(6, 'Le mot de passe actuel est requis'),
@@ -87,12 +88,14 @@ export default function HospitalProfileScreen() {
   const onPasswordSubmit = async (data: PasswordFormData) => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await changePassword(data.currentPassword, data.newPassword);
+      
       Alert.alert(t('common.success'), t('hospital.profile.passwordChanged') || t('agent.profile.passwordChanged'));
       resetPasswordForm();
       setShowPasswordModal(false);
-    } catch (error) {
-      Alert.alert(t('common.error'), t('hospital.profile.passwordError') || t('agent.profile.passwordError'));
+    } catch (error: any) {
+      const errorMessage = getAuthErrorMessage(error);
+      Alert.alert(t('common.error'), t(errorMessage) || t('hospital.profile.passwordError') || t('agent.profile.passwordError'));
     } finally {
       setIsSaving(false);
     }
