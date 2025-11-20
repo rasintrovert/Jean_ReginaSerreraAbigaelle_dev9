@@ -312,15 +312,6 @@ export default function AgentDashboard() {
                 size={isTablet ? 32 : 28} 
                 color={theme.colors.info} 
               />
-              <ThemedView style={styles.badge}>
-                <ThemedText 
-                  size="xs" 
-                  weight="bold"
-                  style={styles.badgeText}
-                >
-                  4
-                </ThemedText>
-              </ThemedView>
             </ThemedView>
             <ThemedView style={{ ...styles.secondaryText, backgroundColor: 'transparent' }}>
               <ThemedText 
@@ -329,13 +320,6 @@ export default function AgentDashboard() {
                 style={styles.secondaryTitle}
               >
                 {t('agent.dashboard.myProofs')}
-              </ThemedText>
-              <ThemedText 
-                variant="secondary" 
-                size="sm"
-                style={styles.secondarySubtitle}
-              >
-                {t('agent.dashboard.proofsCount', { count: 4 })}
               </ThemedText>
             </ThemedView>
           </ThemedView>
@@ -746,23 +730,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryIconContainer: {
-    position: 'relative',
     marginRight: 16,
-  },
-  badge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#dc3545',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
   },
   secondaryText: {
     flex: 1,
