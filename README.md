@@ -10,7 +10,6 @@ GraceRegistry est une application mobile développée avec React Native et Expo 
 
 - **Enregistrement de grossesse** : Suivi des parents et de la grossesse
 - **Enregistrement de naissance** : Informations détaillées sur l'enfant, les parents, le lieu et les témoins
-- **Génération de certificats PDF** : Création automatique avec différents statuts
 - **Gestion et validation multi-niveaux** : Contrôle administratif à plusieurs niveaux
 - **Synchronisation hors ligne** : Travail possible sans connexion Internet
 - **Tableau de bord administratif** : Statistiques et rapports en temps réel
@@ -96,7 +95,7 @@ GraceRegistry/
 ## Rôles utilisateurs
 
 - **Agent de terrain** : Enregistrement des grossesses et naissances
-- **Hôpital** : Enregistrement et suivi médical
+- **Hôpital** : Enregistrement des grossesses et naissances
 - **Administrateur** : Gestion complète, validation des enregistrements et génération de certificats
 
 ## Technologies utilisées
