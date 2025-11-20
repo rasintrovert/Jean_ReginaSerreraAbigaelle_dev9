@@ -44,9 +44,9 @@ export async function validateRecord(
       updatedAt: Timestamp.now(),
     });
 
-    console.log(`✅ ${type} ${firestoreId} validated`);
+    console.log(`${type} ${firestoreId} validated`);
   } catch (error) {
-    console.error(`❌ Error validating ${type}:`, error);
+    console.error(`Error validating ${type}:`, error);
     throw error;
   }
 }
@@ -77,9 +77,9 @@ export async function rejectRecord(
       updatedAt: Timestamp.now(),
     });
 
-    console.log(`✅ ${type} ${firestoreId} rejected`);
+    console.log(`${type} ${firestoreId} rejected`);
   } catch (error) {
-    console.error(`❌ Error rejecting ${type}:`, error);
+    console.error(`Error rejecting ${type}:`, error);
     throw error;
   }
 }
@@ -114,9 +114,9 @@ export async function validateRecordsBulk(
     }
 
     await batch.commit();
-    console.log(`✅ ${firestoreIds.length} ${type} records validated`);
+    console.log(`${firestoreIds.length} ${type} records validated`);
   } catch (error) {
-    console.error(`❌ Error bulk validating ${type}:`, error);
+    console.error(`Error bulk validating ${type}:`, error);
     throw error;
   }
 }
@@ -164,7 +164,7 @@ export async function getRecordsForValidation(
 
     return records;
   } catch (error) {
-    console.error(`❌ Error fetching ${type} records:`, error);
+    console.error(`Error fetching ${type} records:`, error);
     // Si l'erreur est liée à l'index, essayer sans orderBy
     try {
       const collectionName = type === 'pregnancy' ? 'pregnancies' : 'births';
@@ -195,7 +195,7 @@ export async function getRecordsForValidation(
 
       return records;
     } catch (fallbackError) {
-      console.error(`❌ Error in fallback fetch for ${type}:`, fallbackError);
+      console.error(`Error in fallback fetch for ${type}:`, fallbackError);
       return [];
     }
   }

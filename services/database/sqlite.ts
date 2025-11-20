@@ -89,9 +89,9 @@ export async function initDatabase(): Promise<void> {
     `);
 
     isInitialized = true;
-    console.log('✅ Database initialized successfully');
+    console.log('Database initialized successfully');
   } catch (error) {
-    console.error('❌ Database initialization error:', error);
+    console.error('Database initialization error:', error);
     isInitialized = false;
     throw error;
   }

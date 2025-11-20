@@ -62,7 +62,7 @@ export default function AgentHistory() {
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
-          console.log('⚠️ Duplicate pregnancy skipped:', uniqueId);
+          console.log('Duplicate pregnancy skipped:', uniqueId);
           return;
         }
         seenIds.add(uniqueId);
@@ -96,7 +96,7 @@ export default function AgentHistory() {
         
         // Éviter les doublons
         if (seenIds.has(uniqueId)) {
-          console.log('⚠️ Duplicate birth skipped:', uniqueId);
+          console.log('Duplicate birth skipped:', uniqueId);
           return;
         }
         seenIds.add(uniqueId);
